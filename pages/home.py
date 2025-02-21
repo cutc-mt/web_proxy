@@ -35,8 +35,7 @@ def reset_form():
         "prompt_template": "",
         "exclude_category": "",
         "selected_data": "",
-        "save_name": "",
-        "save_name_input": ""  # Add this line to reset the Save as text box
+        "save_name": ""
     }
 
     for key, value in defaults.items():
@@ -113,7 +112,8 @@ def show():
                 load_saved_data(selected_data)
                 st.rerun()
 
-        save_name = st.text_input("Save as", key="save_name_input")
+        # Save asのテキストボックスをキーなしで作成
+        save_name = st.text_input("Save as")
         if st.button("Save POST Data"):
             if save_name:
                 current_data = {
