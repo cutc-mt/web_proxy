@@ -35,7 +35,8 @@ def reset_form():
         "prompt_template": "",
         "exclude_category": "",
         "selected_data": "",
-        "save_name": ""
+        "save_name": "",
+        "save_name_input": ""  # Add this line to reset the Save as text box
     }
 
     for key, value in defaults.items():
