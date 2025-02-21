@@ -12,20 +12,28 @@ class ChatRequest(BaseModel):
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    # エラーをシミュレートする場合（20%の確率）
-    if len(request.question) % 5 == 0:
-        raise HTTPException(status_code=500, detail="Simulated server error")
+    try:
+        # Basic validation
+        if not request.question:
+            raise HTTPException(status_code=400, detail="Question is required")
 
-    # 通常のレスポンス
-    return {
-        "answer": f"This is a mock answer for: {request.question}",
-        "thoughts": "Mock thought process explanation",
-        "data_points": [
-            "Mock reference 1",
-            "Mock reference 2",
-            "Mock reference 3"
-        ]
-    }
+        if request.approach != "rtr":
+            raise HTTPException(status_code=400, detail="Invalid approach value")
+
+        # Normal response
+        return {
+            "answer": f"This is a mock answer for: {request.question}",
+            "thoughts": "Mock thought process explanation",
+            "data_points": [
+                "Mock reference 1",
+                "Mock reference 2",
+                "Mock reference 3"
+            ]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
 async def health_check():

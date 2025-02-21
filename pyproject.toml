@@ -9,5 +9,6 @@ dependencies = [
     "pydantic>=2.10.6",
     "streamlit>=1.42.2",
     "trafilatura>=2.0.0",
+    "twilio>=9.4.6",
     "uvicorn>=0.34.0",
 ]
