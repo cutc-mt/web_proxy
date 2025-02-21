@@ -92,7 +92,7 @@ def show():
             st.session_state.selected_data = selected_data
             if selected_data:
                 load_saved_data(selected_data)
-                st.experimental_rerun()
+                st.rerun()
 
         save_name = st.text_input("Save as", key="save_name_input")
         if st.button("Save POST Data"):
@@ -119,7 +119,7 @@ def show():
                 delete_post_data(selected_data)
                 st.success(f"Deleted {selected_data}")
                 st.session_state.selected_data = ""
-                st.experimental_rerun()
+                st.rerun()
 
     with col1:
         st.text_area(
