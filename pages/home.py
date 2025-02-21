@@ -23,6 +23,24 @@ def initialize_session_state():
         if key not in st.session_state:
             st.session_state[key] = value
 
+def reset_form():
+    # Reset all form fields to default values
+    defaults = {
+        "question": "",
+        "retrieval_mode": "hybrid",
+        "semantic_ranker": False,
+        "semantic_captions": False,
+        "top": 3,
+        "temperature": 0.3,
+        "prompt_template": "",
+        "exclude_category": "",
+        "selected_data": "",
+        "save_name": ""
+    }
+
+    for key, value in defaults.items():
+        st.session_state[key] = value
+
 def load_saved_data(name):
     if name:
         data = load_post_data(name)
@@ -111,6 +129,9 @@ def show():
                 }
                 save_post_data(save_name, current_data)
                 st.success(f"Saved as {save_name}")
+                # Reset form after successful save
+                reset_form()
+                st.rerun()
             else:
                 st.error("Please enter a name to save")
 
