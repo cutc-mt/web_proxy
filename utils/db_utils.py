@@ -217,3 +217,24 @@ def delete_urls(name):
     c.execute('DELETE FROM saved_urls WHERE name = ?', (name,))
     conn.commit()
     conn.close()
+
+def save_last_used_urls(target_url, proxy_url=""):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+              ("last_target_url", target_url))
+    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+              ("last_proxy_url", proxy_url))
+    conn.commit()
+    conn.close()
+
+def load_last_used_urls():
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('SELECT key, value FROM settings WHERE key IN ("last_target_url", "last_proxy_url")')
+    results = dict(c.fetchall())
+    conn.close()
+    return {
+        "target_url": results.get("last_target_url", ""),
+        "proxy_url": results.get("last_proxy_url", "")
+    }

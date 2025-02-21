@@ -1,7 +1,78 @@
 import streamlit as st
 import json
 from utils.api_utils import send_request, is_valid_proxy_url, create_json_data, display_response
-from utils.db_utils import save_post_data, load_post_data, delete_post_data, save_request, get_saved_post_data_names, save_urls, load_urls, delete_urls, get_saved_url_names
+from utils.db_utils import (
+    save_post_data, load_post_data, delete_post_data, save_request,
+    get_saved_post_data_names, save_urls, load_urls, delete_urls,
+    get_saved_url_names, save_last_used_urls, load_last_used_urls
+)
+
+def show_url_settings():
+    # モーダルを開く
+    with st.form("url_settings_form"):
+        st.subheader("URL Settings")
+
+        # URL保存機能
+        saved_urls = get_saved_url_names()
+        selected_url_preset = st.selectbox(
+            "Load Saved URLs",
+            [""] + saved_urls,
+            key="url_preset_input"
+        )
+
+        if selected_url_preset:
+            urls = load_urls(selected_url_preset)
+            if urls:
+                st.session_state.target_url = urls["target_url"]
+                st.session_state.proxy_url = urls["proxy_url"]
+
+        # URL入力フィールド
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            url_save_name = st.text_input("Save URLs as", key="url_save_name")
+
+        # Target URL
+        target_url = st.text_input(
+            "Target URL",
+            value=st.session_state.target_url,
+            key="target_url_input"
+        )
+
+        # Proxy settings
+        proxy_url = st.text_input(
+            "Proxy URL (Optional)",
+            value=st.session_state.proxy_url,
+            key="proxy_url_input"
+        )
+
+        if proxy_url and not is_valid_proxy_url(proxy_url):
+            st.error("Invalid proxy URL format")
+
+        # Form submit buttons
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            submit = st.form_submit_button("Save Settings")
+        with col2:
+            save_preset = st.form_submit_button("Save as Preset")
+        with col3:
+            delete_preset = st.form_submit_button("Delete Preset")
+
+        if submit:
+            st.session_state.target_url = target_url
+            st.session_state.proxy_url = proxy_url
+            save_last_used_urls(target_url, proxy_url)
+            st.success("Settings saved")
+            return True
+
+        if save_preset and url_save_name:
+            save_urls(url_save_name, target_url, proxy_url)
+            st.success(f"Saved as {url_save_name}")
+
+        if delete_preset and selected_url_preset:
+            delete_urls(selected_url_preset)
+            st.success(f"Deleted {selected_url_preset}")
+
+    return False
 
 def initialize_session_state():
     defaults = {
@@ -17,31 +88,19 @@ def initialize_session_state():
         "exclude_category": "",
         "selected_data": "",
         "save_name": "",
-        "form_submitted": False  # 追加: フォーム送信フラグ
+        "form_submitted": False,
+        "show_url_settings": False
     }
 
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
-def reset_form():
-    # Reset all form fields to default values
-    defaults = {
-        "question": "",
-        "retrieval_mode": "hybrid",
-        "semantic_ranker": False,
-        "semantic_captions": False,
-        "top": 3,
-        "temperature": 0.3,
-        "prompt_template": "",
-        "exclude_category": "",
-        "selected_data": "",
-        "save_name": "",
-        "form_submitted": True  # フォーム送信フラグを設定
-    }
-
-    for key, value in defaults.items():
-        st.session_state[key] = value
+    # Load last used URLs
+    if not st.session_state.target_url and not st.session_state.proxy_url:
+        last_urls = load_last_used_urls()
+        st.session_state.target_url = last_urls.get("target_url","")
+        st.session_state.proxy_url = last_urls.get("proxy_url","")
 
 def load_saved_data(name):
     if name:
@@ -64,70 +123,40 @@ def load_saved_data(name):
             return True
     return False
 
+def reset_form():
+    # Reset all form fields to default values
+    defaults = {
+        "question": "",
+        "retrieval_mode": "hybrid",
+        "semantic_ranker": False,
+        "semantic_captions": False,
+        "top": 3,
+        "temperature": 0.3,
+        "prompt_template": "",
+        "exclude_category": "",
+        "selected_data": "",
+        "save_name": "",
+        "form_submitted": True  # フォーム送信フラグを設定
+    }
+
+    for key, value in defaults.items():
+        st.session_state[key] = value
+
 def show():
     st.title("Web Request Manager")
 
     # Initialize session state
     initialize_session_state()
 
-    # URL settings in sidebar
-    st.sidebar.header("URL Settings")
+    # URL Settings Button in the header
+    if st.button("⚙️ URL Settings"):
+        st.session_state.show_url_settings = True
 
-    # URL保存機能
-    saved_urls = get_saved_url_names()
-    selected_url_preset = st.sidebar.selectbox(
-        "Load Saved URLs",
-        [""] + saved_urls,
-        key="url_preset_input"
-    )
-
-    if selected_url_preset:
-        urls = load_urls(selected_url_preset)
-        if urls:
-            st.session_state.target_url = urls["target_url"]
-            st.session_state.proxy_url = urls["proxy_url"]
-
-    # URL入力フィールド
-    col1, col2 = st.sidebar.columns([3, 1])
-    with col1:
-        url_save_name = st.text_input("Save URLs as", key="url_save_name")
-    with col2:
-        if st.button("Save URLs"):
-            if url_save_name:
-                save_urls(
-                    url_save_name,
-                    st.session_state.target_url,
-                    st.session_state.proxy_url
-                )
-                st.sidebar.success(f"Saved as {url_save_name}")
-            else:
-                st.sidebar.error("Please enter a name")
-
-    if st.sidebar.button("Delete Selected URLs"):
-        if selected_url_preset:
-            delete_urls(selected_url_preset)
-            st.sidebar.success(f"Deleted {selected_url_preset}")
+    # Show URL Settings Modal
+    if st.session_state.show_url_settings:
+        if show_url_settings():
+            st.session_state.show_url_settings = False
             st.rerun()
-
-    # Proxy settings
-    st.sidebar.header("Proxy Settings")
-    proxy_url = st.sidebar.text_input(
-        "Proxy URL (Optional)",
-        value=st.session_state.proxy_url,
-        key="proxy_url_input"
-    )
-    if proxy_url and not is_valid_proxy_url(proxy_url):
-        st.sidebar.error("Invalid proxy URL format")
-    st.session_state.proxy_url = proxy_url
-
-    # Target URL
-    st.sidebar.header("Target Settings")
-    target_url = st.sidebar.text_input(
-        "Target URL",
-        value=st.session_state.target_url,
-        key="target_url_input"
-    )
-    st.session_state.target_url = target_url
 
     # Main content
     st.header("Request Input")
