@@ -10,7 +10,7 @@ def get_db_connection():
 def init_db():
     conn = get_db_connection()
     c = conn.cursor()
-    
+
     # Create tables
     c.execute('''
         CREATE TABLE IF NOT EXISTS settings (
@@ -18,14 +18,22 @@ def init_db():
             value TEXT
         )
     ''')
-    
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS saved_urls (
+            name TEXT PRIMARY KEY,
+            target_url TEXT,
+            proxy_url TEXT
+        )
+    ''')
+
     c.execute('''
         CREATE TABLE IF NOT EXISTS saved_post_data (
             name TEXT PRIMARY KEY,
             data TEXT
         )
     ''')
-    
+
     c.execute('''
         CREATE TABLE IF NOT EXISTS requests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,7 +47,7 @@ def init_db():
             memo TEXT
         )
     ''')
-    
+
     conn.commit()
     conn.close()
 
@@ -172,5 +180,40 @@ def delete_request(request_name):
     conn = get_db_connection()
     c = conn.cursor()
     c.execute('DELETE FROM requests WHERE request_name = ?', (request_name,))
+    conn.commit()
+    conn.close()
+
+# Add new functions for URL management
+def save_urls(name, target_url, proxy_url=""):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('INSERT OR REPLACE INTO saved_urls (name, target_url, proxy_url) VALUES (?, ?, ?)',
+              (name, target_url, proxy_url))
+    conn.commit()
+    conn.close()
+
+def load_urls(name):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('SELECT target_url, proxy_url FROM saved_urls WHERE name = ?', (name,))
+    result = c.fetchone()
+    conn.close()
+
+    if result:
+        return {"target_url": result[0], "proxy_url": result[1]}
+    return None
+
+def get_saved_url_names():
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('SELECT name FROM saved_urls')
+    names = [row[0] for row in c.fetchall()]
+    conn.close()
+    return names
+
+def delete_urls(name):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('DELETE FROM saved_urls WHERE name = ?', (name,))
     conn.commit()
     conn.close()

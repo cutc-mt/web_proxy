@@ -1,7 +1,7 @@
 import streamlit as st
 import json
 from utils.api_utils import send_request, is_valid_proxy_url, create_json_data, display_response
-from utils.db_utils import save_post_data, load_post_data, delete_post_data, save_request, get_saved_post_data_names
+from utils.db_utils import save_post_data, load_post_data, delete_post_data, save_request, get_saved_post_data_names, save_urls, load_urls, delete_urls, get_saved_url_names
 
 def initialize_session_state():
     defaults = {
@@ -69,6 +69,45 @@ def show():
 
     # Initialize session state
     initialize_session_state()
+
+    # URL settings in sidebar
+    st.sidebar.header("URL Settings")
+
+    # URL保存機能
+    saved_urls = get_saved_url_names()
+    selected_url_preset = st.sidebar.selectbox(
+        "Load Saved URLs",
+        [""] + saved_urls,
+        key="url_preset_input"
+    )
+
+    if selected_url_preset:
+        urls = load_urls(selected_url_preset)
+        if urls:
+            st.session_state.target_url = urls["target_url"]
+            st.session_state.proxy_url = urls["proxy_url"]
+
+    # URL入力フィールド
+    col1, col2 = st.sidebar.columns([3, 1])
+    with col1:
+        url_save_name = st.text_input("Save URLs as", key="url_save_name")
+    with col2:
+        if st.button("Save URLs"):
+            if url_save_name:
+                save_urls(
+                    url_save_name,
+                    st.session_state.target_url,
+                    st.session_state.proxy_url
+                )
+                st.sidebar.success(f"Saved as {url_save_name}")
+            else:
+                st.sidebar.error("Please enter a name")
+
+    if st.sidebar.button("Delete Selected URLs"):
+        if selected_url_preset:
+            delete_urls(selected_url_preset)
+            st.sidebar.success(f"Deleted {selected_url_preset}")
+            st.rerun()
 
     # Proxy settings
     st.sidebar.header("Proxy Settings")
