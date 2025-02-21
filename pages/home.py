@@ -16,7 +16,8 @@ def initialize_session_state():
         "prompt_template": "",
         "exclude_category": "",
         "selected_data": "",
-        "save_name": ""
+        "save_name": "",
+        "form_submitted": False  # 追加: フォーム送信フラグ
     }
 
     for key, value in defaults.items():
@@ -35,7 +36,8 @@ def reset_form():
         "prompt_template": "",
         "exclude_category": "",
         "selected_data": "",
-        "save_name": ""
+        "save_name": "",
+        "form_submitted": True  # フォーム送信フラグを設定
     }
 
     for key, value in defaults.items():
@@ -112,11 +114,9 @@ def show():
                 load_saved_data(selected_data)
                 st.rerun()
 
-        # Save asのテキストボックスにキーを設定
-        if "save_name_input" not in st.session_state:
-            st.session_state.save_name_input = ""
-
-        save_name = st.text_input("Save as", key="save_name_input")
+        # フォームが送信された後は空の値を表示
+        initial_value = "" if st.session_state.form_submitted else st.session_state.get("save_name_input", "")
+        save_name = st.text_input("Save as", value=initial_value, key="save_name_input")
         if st.button("Save POST Data"):
             if save_name:
                 current_data = {
@@ -135,7 +135,6 @@ def show():
                 st.success(f"Saved as {save_name}")
                 # Reset form after successful save
                 reset_form()
-                # Reset save_name_input
                 st.rerun()
             else:
                 st.error("Please enter a name to save")
@@ -146,6 +145,10 @@ def show():
                 st.success(f"Deleted {selected_data}")
                 st.session_state.selected_data = ""
                 st.rerun()
+
+    # フォーム送信フラグをリセット
+    if st.session_state.form_submitted:
+        st.session_state.form_submitted = False
 
     with col1:
         st.text_area(
