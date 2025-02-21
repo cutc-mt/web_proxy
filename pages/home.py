@@ -112,8 +112,11 @@ def show():
                 load_saved_data(selected_data)
                 st.rerun()
 
-        # Save asのテキストボックスをキーなしで作成
-        save_name = st.text_input("Save as")
+        # Save asのテキストボックスにキーを設定
+        if "save_name_input" not in st.session_state:
+            st.session_state.save_name_input = ""
+
+        save_name = st.text_input("Save as", key="save_name_input")
         if st.button("Save POST Data"):
             if save_name:
                 current_data = {
@@ -132,6 +135,8 @@ def show():
                 st.success(f"Saved as {save_name}")
                 # Reset form after successful save
                 reset_form()
+                # Reset save_name_input
+                st.session_state.save_name_input = ""
                 st.rerun()
             else:
                 st.error("Please enter a name to save")
