@@ -136,7 +136,6 @@ def show():
                 # Reset form after successful save
                 reset_form()
                 # Reset save_name_input
-                st.session_state.save_name_input = ""
                 st.rerun()
             else:
                 st.error("Please enter a name to save")
