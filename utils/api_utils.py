@@ -3,7 +3,6 @@ import json
 import streamlit as st
 from urllib.parse import urlparse
 import html
-import pyperclip
 
 def is_valid_proxy_url(url):
     try:
@@ -66,14 +65,6 @@ def send_request(url, data, proxy_url=None):
             "error": str(e)
         }
 
-def copy_to_clipboard(text, button_key):
-    """クリップボードにテキストをコピーする"""
-    try:
-        pyperclip.copy(text)
-        st.session_state[f"copied_{button_key}"] = True
-    except Exception as e:
-        st.error(f"コピーに失敗しました: {str(e)}")
-
 def display_response(response):
     st.header("レスポンス")
 
@@ -103,48 +94,27 @@ def display_response(response):
     if "data_points" in response:
         st.subheader("データポイント")
 
-        # Create a container for all data points
-        with st.container():
-            # Add a "Copy All" button
-            all_points = "\n\n".join([f"{i+1}. {point}" for i, point in enumerate(response["data_points"])])
+        # すべてのデータポイントを一つの文字列にまとめる
+        all_points = "\n".join([f"{i+1}. {point}" for i, point in enumerate(response["data_points"], 1)])
 
-            # Initialize session state for copy buttons if not exists
-            if "copied_all" not in st.session_state:
-                st.session_state.copied_all = False
+        # 非表示のテキストエリアにデータを格納
+        st.markdown("""
+        <style>
+        .stTextArea textarea {
+            height: 0;
+            opacity: 0;
+            position: absolute;
+        }
+        </style>
+        """, unsafe_allow_html=True)
 
-            # Copy All button
-            if st.button("📋 全てをコピー", key="copy_all_button"):
-                copy_to_clipboard(all_points, "all")
-                st.session_state.copied_all = True
+        st.text_area("", value=all_points, key="copy_text")
+        st.info("上記のテキストを選択してコピーできます")
 
-            # Show success message if copied
-            if st.session_state.get("copied_all", False):
-                st.success("全てのデータポイントをコピーしました！")
-                st.session_state.copied_all = False
-
-            # Display individual data points
-            for i, point in enumerate(response["data_points"], 1):
-                with st.container():
-                    col1, col2 = st.columns([0.1, 0.9])
-
-                    # Initialize session state for individual copy buttons
-                    button_key = f"copy_button_{i}"
-                    if f"copied_{button_key}" not in st.session_state:
-                        st.session_state[f"copied_{button_key}"] = False
-
-                    with col1:
-                        if st.button("📋", key=button_key):
-                            copy_to_clipboard(point, button_key)
-                            st.session_state[f"copied_{button_key}"] = True
-
-                    # Show success message if copied
-                    if st.session_state.get(f"copied_{button_key}", False):
-                        st.success(f"データポイント {i} をコピーしました！")
-                        st.session_state[f"copied_{button_key}"] = False
-
-                    with col2:
-                        st.markdown(f"{i}. {point}")
-                st.divider()
+        # データポイントを表示
+        for i, point in enumerate(response["data_points"], 1):
+            st.markdown(f"**{i}.** {point}")
+            st.divider()
 
     # Display raw content if present
     if "content" in response:
