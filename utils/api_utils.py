@@ -94,99 +94,114 @@ def display_response(response):
     if "data_points" in response:
         st.subheader("データポイント")
 
-        # Add styles
+        # Add improved styles
         st.markdown("""
         <style>
         .data-points-container {
-            margin-top: 1rem;
-            margin-bottom: 2rem;
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 8px;
         }
         .copy-all-button {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background-color: #f8f9fa;
+            padding: 0.75rem 1.25rem;
+            background-color: #ffffff;
             border: 1px solid #dee2e6;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 0.875rem;
-            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
             color: #212529;
+            transition: all 0.2s ease;
         }
         .copy-all-button:hover {
-            background-color: #e9ecef;
+            background-color: #f1f3f5;
+            border-color: #adb5bd;
         }
         .data-point {
-            background-color: white;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 1rem;
-            margin-bottom: 0.5rem;
+            background-color: #ffffff;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
             display: flex;
             align-items: flex-start;
-            gap: 0.5rem;
+            gap: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        .data-point:hover {
+            border-color: #adb5bd;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         .data-point-content {
             flex: 1;
             margin: 0;
             word-break: break-word;
-            line-height: 1.5;
+            line-height: 1.6;
+            font-size: 0.95rem;
         }
         .copy-button {
             background: none;
             border: none;
-            padding: 0.25rem;
+            padding: 0.5rem;
             cursor: pointer;
             color: #6c757d;
             line-height: 1;
-            font-size: 1rem;
+            font-size: 1.1rem;
+            border-radius: 4px;
+            transition: all 0.2s ease;
         }
         .copy-button:hover {
-            color: #0d6efd;
+            color: #228be6;
+            background-color: #f8f9fa;
         }
-        #copyNotification {
+        .copy-notification {
             position: fixed;
             top: 1rem;
             right: 1rem;
-            background-color: #198754;
+            background-color: #37b24d;
             color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
+            padding: 0.75rem 1.25rem;
+            border-radius: 6px;
             z-index: 1000;
             display: none;
             opacity: 0;
             transition: opacity 0.3s ease-in-out;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
         </style>
         """, unsafe_allow_html=True)
 
         # Notification element
         st.markdown("""
-        <div id="copyNotification">コピーしました！</div>
+        <div class="copy-notification" id="copyNotification">コピーしました！</div>
         """, unsafe_allow_html=True)
 
-        # JavaScript for copy functionality
+        # Improved JavaScript for copy functionality
         st.markdown("""
         <script>
         function showNotification() {
             const notification = document.getElementById('copyNotification');
             notification.style.display = 'block';
-            notification.style.opacity = '1';
             setTimeout(() => {
-                notification.style.opacity = '0';
+                notification.style.opacity = '1';
                 setTimeout(() => {
-                    notification.style.display = 'none';
-                }, 300);
-            }, 2000);
+                    notification.style.opacity = '0';
+                    setTimeout(() => {
+                        notification.style.display = 'none';
+                    }, 300);
+                }, 2000);
+            }, 10);
         }
 
-        function copyToClipboard(text) {
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(text)
-                    .then(() => showNotification())
-                    .catch(() => fallbackCopyToClipboard(text));
-            } else {
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                showNotification();
+            } catch (err) {
                 fallbackCopyToClipboard(text);
             }
         }
@@ -195,16 +210,22 @@ def display_response(response):
             const textArea = document.createElement('textarea');
             textArea.value = text;
             textArea.style.position = 'fixed';
-            textArea.style.left = '-9999px';
+            textArea.style.top = '0';
+            textArea.style.left = '0';
+            textArea.style.width = '2em';
+            textArea.style.height = '2em';
+            textArea.style.opacity = '0';
             document.body.appendChild(textArea);
-            textArea.select();
+
             try {
+                textArea.focus();
+                textArea.select();
                 document.execCommand('copy');
                 textArea.remove();
                 showNotification();
             } catch (err) {
-                console.error('Copy failed:', err);
-                alert('コピーに失敗しました');
+                console.error('コピーに失敗しました:', err);
+                alert('コピーに失敗しました。');
             }
         }
 
@@ -221,18 +242,18 @@ def display_response(response):
         # Create the data points container
         st.markdown('<div class="data-points-container">', unsafe_allow_html=True)
 
-        # Copy all button
+        # Copy all button with improved HTML escaping
         all_points = "\n\n".join([f"{i+1}. {point}" for i, point in enumerate(response["data_points"])])
-        escaped_all_points = html.escape(all_points)
+        escaped_all_points = html.escape(all_points).replace('"', '&quot;')
         st.markdown(f"""
         <button class="copy-all-button" data-copy-text="{escaped_all_points}">
             📋 全てをコピー
         </button>
         """, unsafe_allow_html=True)
 
-        # Individual data points
+        # Individual data points with improved HTML escaping
         for i, point in enumerate(response["data_points"], 1):
-            escaped_text = html.escape(point)
+            escaped_text = html.escape(point).replace('"', '&quot;')
             st.markdown(f"""
             <div class="data-point">
                 <button class="copy-button" data-copy-text="{escaped_text}">📋</button>
