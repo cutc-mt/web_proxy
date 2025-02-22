@@ -15,16 +15,18 @@ def main():
     init_db()
     initialize_session_state()
 
-    # Sidebar navigation
-    st.sidebar.title("Navigation")
-    page = st.sidebar.radio(
-        "Select Page",
-        ["Home", "Request Management"],
-        key="navigation"
-    )
+    # シンプル化したサイドバーナビゲーション
+    with st.sidebar:
+        st.title("Web Request Manager")
+        page = st.radio(
+            "Menu",
+            ["Request Form", "Request History"],
+            key="navigation",
+            label_visibility="collapsed"
+        )
 
-    # Page routing
-    if page == "Home":
+    # ページルーティング
+    if page == "Request Form":
         pages.home.show()
     else:
         pages.request_management.show()
