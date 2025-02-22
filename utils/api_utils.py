@@ -94,67 +94,78 @@ def display_response(response):
     if "data_points" in response:
         st.subheader("データポイント")
 
-        # Add copy functionality styles and scripts
+        # Add styles for copy functionality
         st.markdown("""
         <style>
-        .data-point {
-            background-color: white;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            border: 1px solid #e0e0e0;
+        .data-point-container {
             margin-bottom: 1rem;
-            position: relative;
-        }
-        .copy-button {
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            border: none;
-            background: none;
-            cursor: pointer;
-            padding: 0.5rem;
-            font-size: 1.2rem;
-        }
-        .copy-button:hover {
-            color: #1E88E5;
         }
         .copy-all-button {
             display: inline-flex;
             align-items: center;
-            padding: 0.5rem 1rem;
-            margin-bottom: 1rem;
-            background-color: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 0.5rem;
+            padding: 8px 16px;
+            margin-bottom: 16px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 1rem;
-            gap: 0.5rem;
+            font-size: 14px;
         }
         .copy-all-button:hover {
-            background-color: #f5f5f5;
+            background-color: #e9ecef;
+        }
+        .data-point {
+            display: flex;
+            align-items: flex-start;
+            padding: 12px;
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        .copy-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            margin-right: 8px;
+            color: #6c757d;
+        }
+        .copy-button:hover {
+            color: #0d6efd;
+        }
+        .data-point-content {
+            flex-grow: 1;
+            word-break: break-word;
         }
         #copyNotification {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: #4CAF50;
+            top: 16px;
+            right: 16px;
+            background-color: #198754;
             color: white;
-            padding: 1rem;
+            padding: 8px 16px;
             border-radius: 4px;
-            z-index: 9999;
+            z-index: 1000;
             display: none;
+            opacity: 0;
             transition: opacity 0.3s ease-in-out;
         }
         </style>
+        """, unsafe_allow_html=True)
 
+        # Add notification element
+        st.markdown("""
         <div id="copyNotification">コピーしました！</div>
+        """, unsafe_allow_html=True)
 
+        # Add JavaScript for copy functionality
+        st.markdown("""
         <script>
         function showNotification() {
             const notification = document.getElementById('copyNotification');
             notification.style.display = 'block';
             notification.style.opacity = '1';
-
             setTimeout(() => {
                 notification.style.opacity = '0';
                 setTimeout(() => {
@@ -163,71 +174,66 @@ def display_response(response):
             }, 2000);
         }
 
-        function handleCopyClick(event) {
-            const button = event.currentTarget;
-            const text = button.getAttribute('data-copy-text');
-
+        function copyText(text) {
             if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(text).then(() => {
-                    showNotification();
-                }).catch((err) => {
-                    console.error('Failed to copy:', err);
-                    fallbackCopyToClipboard(text);
-                });
+                navigator.clipboard.writeText(text)
+                    .then(() => showNotification())
+                    .catch(() => fallbackCopy(text));
             } else {
-                fallbackCopyToClipboard(text);
+                fallbackCopy(text);
             }
         }
 
-        function fallbackCopyToClipboard(text) {
+        function fallbackCopy(text) {
             const textArea = document.createElement('textarea');
             textArea.value = text;
             textArea.style.position = 'fixed';
             textArea.style.left = '-9999px';
             document.body.appendChild(textArea);
-            textArea.focus();
             textArea.select();
-
             try {
                 document.execCommand('copy');
                 textArea.remove();
                 showNotification();
             } catch (err) {
-                console.error('Fallback: Failed to copy text:', err);
-                alert('クリップボードへのコピーに失敗しました');
+                console.error('Copy failed:', err);
+                alert('コピーに失敗しました');
             }
-            textArea.remove();
         }
 
-        // Add click event listeners after the DOM is loaded
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('[data-copy-text]').forEach(button => {
-                button.addEventListener('click', handleCopyClick);
-            });
+        document.addEventListener('click', function(event) {
+            const button = event.target.closest('[data-copy-text]');
+            if (button) {
+                const text = button.getAttribute('data-copy-text');
+                copyText(text);
+            }
         });
         </script>
         """, unsafe_allow_html=True)
 
-        # Create "Copy All" button with data attribute
+        # Create copy all button
         all_points = "\n\n".join([f"{i+1}. {point}" for i, point in enumerate(response["data_points"])])
         escaped_all_points = html.escape(all_points)
+
         st.markdown(f"""
-        <button class="copy-all-button" data-copy-text="{escaped_all_points}">
-            📋 全てをコピー
-        </button>
+        <div class="data-point-container">
+            <button class="copy-all-button" data-copy-text="{escaped_all_points}">
+                📋 全てをコピー
+            </button>
+        </div>
         """, unsafe_allow_html=True)
 
-        # Display individual data points with data attributes
+        # Display individual data points
         for i, point in enumerate(response["data_points"], 1):
             escaped_text = html.escape(point)
             st.markdown(f"""
             <div class="data-point">
                 <button class="copy-button" data-copy-text="{escaped_text}">📋</button>
-                <p>{i}. {escaped_text}</p>
+                <div class="data-point-content">{i}. {escaped_text}</div>
             </div>
             """, unsafe_allow_html=True)
 
-    # If response is not JSON formatted
+    # Display raw content if present
     if "content" in response:
         st.subheader("レスポンス内容")
         st.text(response["content"])
