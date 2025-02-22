@@ -109,13 +109,13 @@ def display_response(response):
             all_points = "\n\n".join([f"{i+1}. {point}" for i, point in enumerate(response["data_points"])])
 
             # Initialize session state for copy buttons if not exists
-            if "copy_all_clicked" not in st.session_state:
-                st.session_state.copy_all_clicked = False
+            if "copied_all" not in st.session_state:
+                st.session_state.copied_all = False
 
             # Copy All button
-            if st.button("📋 全てをコピー", key="copy_all"):
+            if st.button("📋 全てをコピー", key="copy_all_button"):
                 copy_to_clipboard(all_points, "all")
-                st.session_state.copy_all_clicked = True
+                st.session_state.copied_all = True
 
             # Show success message if copied
             if st.session_state.get("copied_all", False):
@@ -128,19 +128,19 @@ def display_response(response):
                     col1, col2 = st.columns([0.1, 0.9])
 
                     # Initialize session state for individual copy buttons
-                    copy_key = f"copy_{i}"
-                    if copy_key not in st.session_state:
-                        st.session_state[copy_key] = False
+                    button_key = f"copy_button_{i}"
+                    if f"copied_{button_key}" not in st.session_state:
+                        st.session_state[f"copied_{button_key}"] = False
 
                     with col1:
-                        if st.button("📋", key=f"copy_button_{i}"):
-                            copy_to_clipboard(point, copy_key)
-                            st.session_state[copy_key] = True
+                        if st.button("📋", key=button_key):
+                            copy_to_clipboard(point, button_key)
+                            st.session_state[f"copied_{button_key}"] = True
 
                     # Show success message if copied
-                    if st.session_state.get(f"copied_{copy_key}", False):
+                    if st.session_state.get(f"copied_{button_key}", False):
                         st.success(f"データポイント {i} をコピーしました！")
-                        st.session_state[f"copied_{copy_key}"] = False
+                        st.session_state[f"copied_{button_key}"] = False
 
                     with col2:
                         st.markdown(f"{i}. {point}")
