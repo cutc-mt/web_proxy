@@ -94,57 +94,64 @@ def display_response(response):
     if "data_points" in response:
         st.subheader("データポイント")
 
-        # Add styles for copy functionality
+        # Add styles
         st.markdown("""
         <style>
-        .data-point-container {
-            margin-bottom: 1rem;
+        .data-points-container {
+            margin-top: 1rem;
+            margin-bottom: 2rem;
         }
         .copy-all-button {
             display: inline-flex;
             align-items: center;
-            padding: 8px 16px;
-            margin-bottom: 16px;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
             background-color: #f8f9fa;
             border: 1px solid #dee2e6;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+            color: #212529;
         }
         .copy-all-button:hover {
             background-color: #e9ecef;
         }
         .data-point {
-            display: flex;
-            align-items: flex-start;
-            padding: 12px;
             background-color: white;
             border: 1px solid #dee2e6;
             border-radius: 4px;
-            margin-bottom: 8px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        .data-point-content {
+            flex: 1;
+            margin: 0;
+            word-break: break-word;
+            line-height: 1.5;
         }
         .copy-button {
             background: none;
             border: none;
+            padding: 0.25rem;
             cursor: pointer;
-            padding: 4px;
-            margin-right: 8px;
             color: #6c757d;
+            line-height: 1;
+            font-size: 1rem;
         }
         .copy-button:hover {
             color: #0d6efd;
         }
-        .data-point-content {
-            flex-grow: 1;
-            word-break: break-word;
-        }
         #copyNotification {
             position: fixed;
-            top: 16px;
-            right: 16px;
+            top: 1rem;
+            right: 1rem;
             background-color: #198754;
             color: white;
-            padding: 8px 16px;
+            padding: 0.5rem 1rem;
             border-radius: 4px;
             z-index: 1000;
             display: none;
@@ -154,12 +161,12 @@ def display_response(response):
         </style>
         """, unsafe_allow_html=True)
 
-        # Add notification element
+        # Notification element
         st.markdown("""
         <div id="copyNotification">コピーしました！</div>
         """, unsafe_allow_html=True)
 
-        # Add JavaScript for copy functionality
+        # JavaScript for copy functionality
         st.markdown("""
         <script>
         function showNotification() {
@@ -174,17 +181,17 @@ def display_response(response):
             }, 2000);
         }
 
-        function copyText(text) {
+        function copyToClipboard(text) {
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(text)
                     .then(() => showNotification())
-                    .catch(() => fallbackCopy(text));
+                    .catch(() => fallbackCopyToClipboard(text));
             } else {
-                fallbackCopy(text);
+                fallbackCopyToClipboard(text);
             }
         }
 
-        function fallbackCopy(text) {
+        function fallbackCopyToClipboard(text) {
             const textArea = document.createElement('textarea');
             textArea.value = text;
             textArea.style.position = 'fixed';
@@ -205,33 +212,36 @@ def display_response(response):
             const button = event.target.closest('[data-copy-text]');
             if (button) {
                 const text = button.getAttribute('data-copy-text');
-                copyText(text);
+                copyToClipboard(text);
             }
         });
         </script>
         """, unsafe_allow_html=True)
 
-        # Create copy all button
+        # Create the data points container
+        st.markdown('<div class="data-points-container">', unsafe_allow_html=True)
+
+        # Copy all button
         all_points = "\n\n".join([f"{i+1}. {point}" for i, point in enumerate(response["data_points"])])
         escaped_all_points = html.escape(all_points)
-
         st.markdown(f"""
-        <div class="data-point-container">
-            <button class="copy-all-button" data-copy-text="{escaped_all_points}">
-                📋 全てをコピー
-            </button>
-        </div>
+        <button class="copy-all-button" data-copy-text="{escaped_all_points}">
+            📋 全てをコピー
+        </button>
         """, unsafe_allow_html=True)
 
-        # Display individual data points
+        # Individual data points
         for i, point in enumerate(response["data_points"], 1):
             escaped_text = html.escape(point)
             st.markdown(f"""
             <div class="data-point">
                 <button class="copy-button" data-copy-text="{escaped_text}">📋</button>
-                <div class="data-point-content">{i}. {escaped_text}</div>
+                <p class="data-point-content">{i}. {escaped_text}</p>
             </div>
             """, unsafe_allow_html=True)
+
+        # Close the container
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Display raw content if present
     if "content" in response:
