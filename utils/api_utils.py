@@ -93,87 +93,74 @@ def display_response(response):
     if "data_points" in response:
         st.subheader("データポイント")
 
-        # Add copy functionality CSS and JavaScript
+        # Add copy button functionality
         st.markdown("""
         <style>
-        .data-point-card {
-            background-color: #ffffff;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 10px 0;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        .stButton>button {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+        .data-point {
+            background-color: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
             border: 1px solid #e0e0e0;
+            margin-bottom: 1rem;
             position: relative;
         }
         .copy-button {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            background: none;
+            top: 0.5rem;
+            right: 0.5rem;
             border: none;
+            background: none;
             cursor: pointer;
-            padding: 5px;
-            color: #666;
+            padding: 0.5rem;
         }
         .copy-button:hover {
-            color: #000;
+            color: #1E88E5;
         }
-        .copy-all-button {
-            margin-bottom: 10px;
-            background: none;
-            border: 1px solid #e0e0e0;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .copy-all-button:hover {
-            background-color: #f5f5f5;
-        }
-        @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css');
         </style>
+        """, unsafe_allow_html=True)
+
+        # Add JavaScript for copy functionality
+        st.markdown("""
         <script>
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
+        async function copyText(text) {
+            try {
+                await navigator.clipboard.writeText(text);
                 // Show success message
-                const tooltip = document.createElement('div');
-                tooltip.textContent = 'コピーしました！';
-                tooltip.style.position = 'fixed';
-                tooltip.style.padding = '8px';
-                tooltip.style.background = '#4CAF50';
-                tooltip.style.color = 'white';
-                tooltip.style.borderRadius = '4px';
-                tooltip.style.zIndex = '1000';
-                tooltip.style.top = '20px';
-                tooltip.style.right = '20px';
-                document.body.appendChild(tooltip);
-                setTimeout(() => tooltip.remove(), 2000);
-            });
+                const div = document.createElement('div');
+                div.style.position = 'fixed';
+                div.style.top = '20px';
+                div.style.right = '20px';
+                div.style.backgroundColor = '#4CAF50';
+                div.style.color = 'white';
+                div.style.padding = '1rem';
+                div.style.borderRadius = '4px';
+                div.style.zIndex = '9999';
+                div.textContent = 'コピーしました！';
+                document.body.appendChild(div);
+                setTimeout(() => div.remove(), 2000);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+            }
         }
         </script>
         """, unsafe_allow_html=True)
 
-        # Create copy all button
+        # Create "Copy All" button
         all_points = "\n\n".join([f"{i+1}. {point}" for i, point in enumerate(response["data_points"])])
-        st.markdown(f"""
-        <button class="copy-all-button" onclick="copyToClipboard(`{all_points}`)">
-            <i class="fas fa-copy"></i> 全てをコピー
-        </button>
-        """, unsafe_allow_html=True)
+        st.button("📋 全てをコピー", on_click=lambda: st.write(f'<script>copyText(`{all_points}`)</script>', unsafe_allow_html=True))
 
-        # Display individual data points with copy buttons
+        # Display individual data points
         for i, point in enumerate(response["data_points"], 1):
-            with st.container():
-                st.markdown(f"""
-                <div class="data-point-card">
-                    <button class="copy-button" onclick="copyToClipboard(`{point}`)">
-                        <i class="fas fa-copy"></i>
-                    </button>
-                    <p>{i}. {point}</p>
-                </div>
-                """, unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class="data-point">
+                <button class="copy-button" onclick="copyText(`{point}`)">📋</button>
+                <p>{i}. {point}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
     # If response is not JSON formatted
     if "content" in response:
