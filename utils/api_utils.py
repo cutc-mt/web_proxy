@@ -2,6 +2,7 @@ import requests
 import json
 import streamlit as st
 from urllib.parse import urlparse
+import html
 
 def is_valid_proxy_url(url):
     try:
@@ -63,6 +64,10 @@ def send_request(url, data, proxy_url=None):
             "status_code": 0,
             "error": str(e)
         }
+
+def escape_js_string(s):
+    """Escape string for use in JavaScript"""
+    return json.dumps(s)[1:-1]  # Remove the surrounding quotes
 
 def display_response(response):
     st.header("レスポンス")
@@ -167,20 +172,23 @@ def display_response(response):
         </script>
         """, unsafe_allow_html=True)
 
-        # Create "Copy All" button
+        # Create "Copy All" button with escaped content
         all_points = "\n\n".join([f"{i+1}. {point}" for i, point in enumerate(response["data_points"])])
+        escaped_all_points = escape_js_string(all_points)
         st.markdown(f"""
-        <button class="copy-all-button" onclick="copyToClipboard(`{all_points}`)">
+        <button class="copy-all-button" onclick="copyToClipboard('{escaped_all_points}')">
             📋 全てをコピー
         </button>
         """, unsafe_allow_html=True)
 
-        # Display individual data points
+        # Display individual data points with escaped content
         for i, point in enumerate(response["data_points"], 1):
+            escaped_point = escape_js_string(point)
+            escaped_html = html.escape(point)
             st.markdown(f"""
             <div class="data-point">
-                <button class="copy-button" onclick="copyToClipboard(`{point}`)">📋</button>
-                <p>{i}. {point}</p>
+                <button class="copy-button" onclick="copyToClipboard('{escaped_point}')">📋</button>
+                <p>{i}. {escaped_html}</p>
             </div>
             """, unsafe_allow_html=True)
 
