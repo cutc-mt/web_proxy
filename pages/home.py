@@ -72,6 +72,7 @@ def show_url_settings():
             with st.spinner("Saving URL preset..."):
                 save_urls(url_save_name, target_url, proxy_url)
                 st.success(f"Saved as {url_save_name}")
+                st.rerun()
 
         if delete_preset and selected_url_preset:
             with st.spinner("Deleting URL preset..."):
@@ -264,7 +265,7 @@ def show():
                             st.error(f"{errors}件のデータをインポートできませんでした")
 
                         # Refresh the page to show new data
-                        st.experimental_rerun()
+                        st.rerun()
 
             except Exception as e:
                 st.error("JSONファイルの読み込みに失敗しました")

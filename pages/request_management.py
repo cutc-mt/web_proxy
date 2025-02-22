@@ -21,13 +21,13 @@ def show():
         "answer": "Answer",
         "thoughts": "Thoughts",
         "data_points": "Data Points",
-        "memo": "Memo"  # 新しいカラムを追加
+        "memo": "Memo"
     }
 
     selected_columns = st.multiselect(
         "Select columns to display",
         list(columns.keys()),
-        default=["request_time", "request_name", "url", "status_code", "error", "memo"],  # デフォルトにmemoを追加
+        default=["request_time", "request_name", "url", "status_code", "error", "memo"],
         format_func=lambda x: columns[x]
     )
 
@@ -69,7 +69,7 @@ def show():
                             update_request_memo(row["request_name"], new_memo)
 
                     st.success("メモを保存しました")
-                    st.experimental_rerun()
+                    st.rerun()
 
         # Export to CSV
         if st.button("Export to CSV"):
@@ -92,6 +92,6 @@ def show():
         if st.button("Delete Selected Request"):
             delete_request(request_to_delete)
             st.success(f"Deleted request: {request_to_delete}")
-            st.experimental_rerun()
+            st.rerun()
     else:
         st.info("No requests found")
