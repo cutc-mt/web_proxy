@@ -3,6 +3,7 @@ import json
 import streamlit as st
 from urllib.parse import urlparse
 import html
+import pyperclip
 
 def is_valid_proxy_url(url):
     try:
@@ -65,6 +66,10 @@ def send_request(url, data, proxy_url=None):
             "error": str(e)
         }
 
+def copy_to_clipboard(text):
+    """クリップボードにテキストをコピーする"""
+    pyperclip.copy(text)
+
 def display_response(response):
     st.header("レスポンス")
 
@@ -98,16 +103,17 @@ def display_response(response):
         with st.container():
             # Add a "Copy All" button
             all_points = "\n\n".join([f"{i+1}. {point}" for i, point in enumerate(response["data_points"])])
-            if st.button("📋 全てをコピー"):
+            if st.button("📋 全てをコピー", key="copy_all"):
+                copy_to_clipboard(all_points)
                 st.toast("全てのデータポイントをコピーしました！")
-                st.write(all_points)
 
             # Display individual data points
             for i, point in enumerate(response["data_points"], 1):
                 with st.container():
                     col1, col2 = st.columns([0.1, 0.9])
                     with col1:
-                        if st.button("📋", key=f"copy_button_{i}"):
+                        if st.button("📋", key=f"copy_button_{i}", help=f"データポイント {i} をコピー"):
+                            copy_to_clipboard(point)
                             st.toast(f"データポイント {i} をコピーしました！")
                     with col2:
                         st.markdown(f"{i}. {point}")
