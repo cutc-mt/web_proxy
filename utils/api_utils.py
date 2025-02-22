@@ -65,10 +65,6 @@ def send_request(url, data, proxy_url=None):
             "error": str(e)
         }
 
-def escape_js_string(s):
-    """Escape string for use in JavaScript"""
-    return json.dumps(s)[1:-1]  # Remove the surrounding quotes
-
 def display_response(response):
     st.header("レスポンス")
 
@@ -167,42 +163,67 @@ def display_response(response):
             }, 2000);
         }
 
-        async function copyToClipboard(text) {
-            try {
-                console.log('Copying text:', text);  // Debug log
-                const textArea = document.createElement('textarea');
-                textArea.value = text;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                console.log('Copy successful');  // Debug log
-                showNotification();
-            } catch (err) {
-                console.error('Failed to copy text:', err);
-                alert('クリップボードへのコピーに失敗しました');
+        function handleCopyClick(event) {
+            const button = event.currentTarget;
+            const text = button.getAttribute('data-copy-text');
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showNotification();
+                }).catch((err) => {
+                    console.error('Failed to copy:', err);
+                    fallbackCopyToClipboard(text);
+                });
+            } else {
+                fallbackCopyToClipboard(text);
             }
         }
+
+        function fallbackCopyToClipboard(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-9999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                document.execCommand('copy');
+                textArea.remove();
+                showNotification();
+            } catch (err) {
+                console.error('Fallback: Failed to copy text:', err);
+                alert('クリップボードへのコピーに失敗しました');
+            }
+            textArea.remove();
+        }
+
+        // Add click event listeners after the DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('[data-copy-text]').forEach(button => {
+                button.addEventListener('click', handleCopyClick);
+            });
+        });
         </script>
         """, unsafe_allow_html=True)
 
-        # Create "Copy All" button with escaped content
+        # Create "Copy All" button with data attribute
         all_points = "\n\n".join([f"{i+1}. {point}" for i, point in enumerate(response["data_points"])])
-        escaped_all_points = json.dumps(all_points)[1:-1]  # Remove surrounding quotes
+        escaped_all_points = html.escape(all_points)
         st.markdown(f"""
-        <button class="copy-all-button" onclick="copyToClipboard('{escaped_all_points}')">
+        <button class="copy-all-button" data-copy-text="{escaped_all_points}">
             📋 全てをコピー
         </button>
         """, unsafe_allow_html=True)
 
-        # Display individual data points with escaped content
+        # Display individual data points with data attributes
         for i, point in enumerate(response["data_points"], 1):
-            escaped_point = json.dumps(point)[1:-1]  # Remove surrounding quotes
-            escaped_html = html.escape(point)
+            escaped_text = html.escape(point)
             st.markdown(f"""
             <div class="data-point">
-                <button class="copy-button" onclick="copyToClipboard('{escaped_point}')">📋</button>
-                <p>{i}. {escaped_html}</p>
+                <button class="copy-button" data-copy-text="{escaped_text}">📋</button>
+                <p>{i}. {escaped_text}</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -210,3 +231,7 @@ def display_response(response):
     if "content" in response:
         st.subheader("レスポンス内容")
         st.text(response["content"])
+
+def escape_js_string(s):
+    """Escape string for use in JavaScript"""
+    return json.dumps(s)[1:-1]  # Remove the surrounding quotes
