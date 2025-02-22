@@ -98,7 +98,7 @@ def display_response(response):
     if "data_points" in response:
         st.subheader("データポイント")
 
-        # Add copy button functionality
+        # Add copy functionality styles and scripts
         st.markdown("""
         <style>
         .data-point {
@@ -137,7 +137,7 @@ def display_response(response):
         .copy-all-button:hover {
             background-color: #f5f5f5;
         }
-        .copy-notification {
+        #copyNotification {
             position: fixed;
             top: 20px;
             right: 20px;
@@ -147,26 +147,40 @@ def display_response(response):
             border-radius: 4px;
             z-index: 9999;
             display: none;
+            transition: opacity 0.3s ease-in-out;
         }
         </style>
 
-        <div id="copyNotification" class="copy-notification">コピーしました！</div>
+        <div id="copyNotification">コピーしました！</div>
 
         <script>
         function showNotification() {
             const notification = document.getElementById('copyNotification');
             notification.style.display = 'block';
+            notification.style.opacity = '1';
+
             setTimeout(() => {
-                notification.style.display = 'none';
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    notification.style.display = 'none';
+                }, 300);
             }, 2000);
         }
 
         async function copyToClipboard(text) {
             try {
-                await navigator.clipboard.writeText(text);
+                console.log('Copying text:', text);  // Debug log
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                console.log('Copy successful');  // Debug log
                 showNotification();
             } catch (err) {
                 console.error('Failed to copy text:', err);
+                alert('クリップボードへのコピーに失敗しました');
             }
         }
         </script>
@@ -174,7 +188,7 @@ def display_response(response):
 
         # Create "Copy All" button with escaped content
         all_points = "\n\n".join([f"{i+1}. {point}" for i, point in enumerate(response["data_points"])])
-        escaped_all_points = escape_js_string(all_points)
+        escaped_all_points = json.dumps(all_points)[1:-1]  # Remove surrounding quotes
         st.markdown(f"""
         <button class="copy-all-button" onclick="copyToClipboard('{escaped_all_points}')">
             📋 全てをコピー
@@ -183,7 +197,7 @@ def display_response(response):
 
         # Display individual data points with escaped content
         for i, point in enumerate(response["data_points"], 1):
-            escaped_point = escape_js_string(point)
+            escaped_point = json.dumps(point)[1:-1]  # Remove surrounding quotes
             escaped_html = html.escape(point)
             st.markdown(f"""
             <div class="data-point">
