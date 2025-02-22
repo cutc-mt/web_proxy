@@ -13,18 +13,20 @@ def show_url_settings():
         st.subheader("URL Settings")
 
         # URL保存機能
-        saved_urls = get_saved_url_names()
-        selected_url_preset = st.selectbox(
-            "Load Saved URLs",
-            [""] + saved_urls,
-            key="url_preset_input"
-        )
+        with st.spinner("Loading saved URLs..."):
+            saved_urls = get_saved_url_names()
+            selected_url_preset = st.selectbox(
+                "Load Saved URLs",
+                [""] + saved_urls,
+                key="url_preset_input"
+            )
 
         if selected_url_preset:
-            urls = load_urls(selected_url_preset)
-            if urls:
-                st.session_state.target_url = urls["target_url"]
-                st.session_state.proxy_url = urls["proxy_url"]
+            with st.spinner("Loading URL configuration..."):
+                urls = load_urls(selected_url_preset)
+                if urls:
+                    st.session_state.target_url = urls["target_url"]
+                    st.session_state.proxy_url = urls["proxy_url"]
 
         # URL入力フィールド
         col1, col2 = st.columns([3, 1])
@@ -58,19 +60,22 @@ def show_url_settings():
             delete_preset = st.form_submit_button("Delete Preset")
 
         if submit:
-            st.session_state.target_url = target_url
-            st.session_state.proxy_url = proxy_url
-            save_last_used_urls(target_url, proxy_url)
-            st.success("Settings saved")
-            return True
+            with st.spinner("Saving settings..."):
+                st.session_state.target_url = target_url
+                st.session_state.proxy_url = proxy_url
+                save_last_used_urls(target_url, proxy_url)
+                st.success("Settings saved")
+                return True
 
         if save_preset and url_save_name:
-            save_urls(url_save_name, target_url, proxy_url)
-            st.success(f"Saved as {url_save_name}")
+            with st.spinner("Saving URL preset..."):
+                save_urls(url_save_name, target_url, proxy_url)
+                st.success(f"Saved as {url_save_name}")
 
         if delete_preset and selected_url_preset:
-            delete_urls(selected_url_preset)
-            st.success(f"Deleted {selected_url_preset}")
+            with st.spinner("Deleting URL preset..."):
+                delete_urls(selected_url_preset)
+                st.success(f"Deleted {selected_url_preset}")
 
     return False
 
