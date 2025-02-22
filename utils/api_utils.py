@@ -96,10 +96,6 @@ def display_response(response):
         # Add copy button functionality
         st.markdown("""
         <style>
-        .stButton>button {
-            width: 100%;
-            margin-bottom: 1rem;
-        }
         .data-point {
             background-color: white;
             padding: 1rem;
@@ -116,34 +112,56 @@ def display_response(response):
             background: none;
             cursor: pointer;
             padding: 0.5rem;
+            font-size: 1.2rem;
         }
         .copy-button:hover {
             color: #1E88E5;
         }
+        .copy-all-button {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            margin-bottom: 1rem;
+            background-color: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            gap: 0.5rem;
+        }
+        .copy-all-button:hover {
+            background-color: #f5f5f5;
+        }
+        .copy-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #4CAF50;
+            color: white;
+            padding: 1rem;
+            border-radius: 4px;
+            z-index: 9999;
+            display: none;
+        }
         </style>
-        """, unsafe_allow_html=True)
 
-        # Add JavaScript for copy functionality
-        st.markdown("""
+        <div id="copyNotification" class="copy-notification">コピーしました！</div>
+
         <script>
-        async function copyText(text) {
+        function showNotification() {
+            const notification = document.getElementById('copyNotification');
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 2000);
+        }
+
+        async function copyToClipboard(text) {
             try {
                 await navigator.clipboard.writeText(text);
-                // Show success message
-                const div = document.createElement('div');
-                div.style.position = 'fixed';
-                div.style.top = '20px';
-                div.style.right = '20px';
-                div.style.backgroundColor = '#4CAF50';
-                div.style.color = 'white';
-                div.style.padding = '1rem';
-                div.style.borderRadius = '4px';
-                div.style.zIndex = '9999';
-                div.textContent = 'コピーしました！';
-                document.body.appendChild(div);
-                setTimeout(() => div.remove(), 2000);
+                showNotification();
             } catch (err) {
-                console.error('Failed to copy text: ', err);
+                console.error('Failed to copy text:', err);
             }
         }
         </script>
@@ -151,13 +169,17 @@ def display_response(response):
 
         # Create "Copy All" button
         all_points = "\n\n".join([f"{i+1}. {point}" for i, point in enumerate(response["data_points"])])
-        st.button("📋 全てをコピー", on_click=lambda: st.write(f'<script>copyText(`{all_points}`)</script>', unsafe_allow_html=True))
+        st.markdown(f"""
+        <button class="copy-all-button" onclick="copyToClipboard(`{all_points}`)">
+            📋 全てをコピー
+        </button>
+        """, unsafe_allow_html=True)
 
         # Display individual data points
         for i, point in enumerate(response["data_points"], 1):
             st.markdown(f"""
             <div class="data-point">
-                <button class="copy-button" onclick="copyText(`{point}`)">📋</button>
+                <button class="copy-button" onclick="copyToClipboard(`{point}`)">📋</button>
                 <p>{i}. {point}</p>
             </div>
             """, unsafe_allow_html=True)
