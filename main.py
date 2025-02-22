@@ -8,7 +8,12 @@ def main():
         page_title="Proxy Web Request Manager",
         page_icon="🌐",
         layout="wide",
-        initial_sidebar_state="expanded"
+        initial_sidebar_state="expanded",
+        menu_items={
+            "Get Help": None,
+            "Report a bug": None,
+            "About": None
+        }
     )
 
     # Initialize database and session state
