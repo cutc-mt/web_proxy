@@ -17,16 +17,16 @@ def main():
 
     # シンプル化したサイドバーナビゲーション
     with st.sidebar:
-        st.title("Web Request Manager")
+        st.title("🌐 Web Request")
         page = st.radio(
-            "Menu",
-            ["Request Form", "Request History"],
+            "",  # ラベルを削除
+            ["📝 Request", "📋 History"],
             key="navigation",
-            label_visibility="collapsed"
+            format_func=lambda x: x.split(" ")[1]  # アイコンを除いたテキストのみ表示
         )
 
     # ページルーティング
-    if page == "Request Form":
+    if page == "📝 Request":
         pages.home.show()
     else:
         pages.request_management.show()
