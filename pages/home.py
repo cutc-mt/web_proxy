@@ -150,13 +150,13 @@ def reset_form():
         st.session_state[key] = value
 
 def show():
-    st.title("Web Request Manager")
+    st.title("Webリクエストマネージャー")
 
     # Initialize session state
     initialize_session_state()
 
     # URL Settings Button in the header
-    if st.button("⚙️ URL Settings"):
+    if st.button("⚙️ URL設定"):
         st.session_state.show_url_settings = True
 
     # Show URL Settings Modal
@@ -166,13 +166,13 @@ def show():
             st.rerun()
 
     # Main content
-    st.header("Request Input")
+    st.header("リクエスト入力")
 
     # POST data input
     col1, col2 = st.columns([2, 1])
 
     with col2:
-        st.subheader("Saved POST Data")
+        st.subheader("保存済みPOSTデータ")
         saved_data = get_saved_post_data_names()
 
         # Selectbox for loading saved data
@@ -192,7 +192,7 @@ def show():
         # フォームが送信された後は空の値を表示
         initial_value = "" if st.session_state.form_submitted else st.session_state.get("save_name_input", "")
         save_name = st.text_input("Save as", value=initial_value, key="save_name_input")
-        if st.button("Save POST Data"):
+        if st.button("保存"):
             if save_name:
                 current_data = {
                     "question": st.session_state.question,
@@ -207,17 +207,17 @@ def show():
                     }
                 }
                 save_post_data(save_name, current_data)
-                st.success(f"Saved as {save_name}")
+                st.success(f"{save_name}として保存しました")
                 # Reset form after successful save
                 reset_form()
                 st.rerun()
             else:
-                st.error("Please enter a name to save")
+                st.error("保存名を入力してください")
 
-        if st.button("Delete Selected"):
+        if st.button("選択したデータを削除"):
             if selected_data:
                 delete_post_data(selected_data)
-                st.success(f"Deleted {selected_data}")
+                st.success(f"{selected_data}を削除しました")
                 st.session_state.selected_data = ""
                 st.rerun()
 
@@ -250,7 +250,6 @@ def show():
             type=["json"],
             help="エクスポートされたPOSTデータのJSONファイルを選択してください"
         )
-
         if uploaded_file is not None:
             try:
                 import_data = json.load(uploaded_file)
@@ -272,10 +271,6 @@ def show():
                 st.error(f"エラー: {str(e)}")
 
 
-    # フォーム送信フラグをリセット
-    if st.session_state.form_submitted:
-        st.session_state.form_submitted = False
-
     with col1:
         st.text_area(
             "Question (Required)",
@@ -284,7 +279,7 @@ def show():
             on_change=lambda: setattr(st.session_state, "question", st.session_state.question_input)
         )
 
-        st.subheader("Overrides")
+        st.subheader("オーバーライド設定")
         st.selectbox(
             "Retrieval Mode",
             ["hybrid", "vectors", "text"],
@@ -344,13 +339,13 @@ def show():
         )
 
     # Send request
-    if st.button("Send Request", type="primary"):
+    if st.button("リクエスト送信", type="primary"):
         if not st.session_state.question:
-            st.error("Question is required")
+            st.error("質問を入力してください")
             return
 
         if not st.session_state.target_url:
-            st.error("Target URL is required")
+            st.error("ターゲットURLを入力してください")
             return
 
         post_data = create_json_data()

@@ -65,37 +65,37 @@ def send_request(url, data, proxy_url=None):
         }
 
 def display_response(response):
-    st.header("Response")
-    
+    st.header("レスポンス")
+
     # Display status code
-    st.subheader("Status Code")
+    st.subheader("ステータスコード")
     st.write(response.get("status_code", "N/A"))
-    
+
     # Display headers
     if "headers" in response:
-        st.subheader("Headers")
+        st.subheader("ヘッダー")
         st.json(response["headers"])
-    
+
     # Display error if present
     if "error" in response and response["error"]:
-        st.error(f"Error: {response['error']}")
+        st.error(f"エラー: {response['error']}")
         return
-    
+
     # Display answer, thoughts, and data points if present
     if "answer" in response:
-        st.subheader("Answer")
+        st.subheader("回答")
         st.write(response["answer"])
-    
+
     if "thoughts" in response:
-        st.subheader("Thoughts")
+        st.subheader("思考プロセス")
         st.write(response["thoughts"])
-    
+
     if "data_points" in response:
-        st.subheader("Data Points")
+        st.subheader("データポイント")
         for point in response["data_points"]:
             st.write(f"- {point}")
-    
+
     # If response is not JSON formatted
     if "content" in response:
-        st.subheader("Response Content")
+        st.subheader("レスポンス内容")
         st.text(response["content"])
