@@ -285,3 +285,17 @@ def import_post_data(import_data):
     conn.close()
 
     return success, errors
+
+def update_request_memo(request_name, memo):
+    """Update memo for a specific request"""
+    conn = get_db_connection()
+    c = conn.cursor()
+
+    c.execute('''
+        UPDATE requests 
+        SET memo = ? 
+        WHERE request_name = ?
+    ''', (memo, request_name))
+
+    conn.commit()
+    conn.close()
