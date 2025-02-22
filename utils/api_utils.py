@@ -94,11 +94,6 @@ def display_response(response):
     if "data_points" in response:
         st.subheader("データポイント")
 
-        # データポイントを表示
-        for i, point in enumerate(response["data_points"], 1):
-            st.markdown(f"**{i}.** {point}")
-            st.divider()
-
         # すべてのデータポイントを一つの文字列にまとめる
         all_points = "\n".join([f"{i+1}. {point}" for i, point in enumerate(response["data_points"], 1)])
 
@@ -116,6 +111,11 @@ def display_response(response):
         """, unsafe_allow_html=True)
 
         st.text_area("", value=all_points, key="copy_text")
+
+        # データポイントを表示
+        for i, point in enumerate(response["data_points"], 1):
+            st.markdown(f"**{i}.** {point}")
+            st.divider()
 
     # Display raw content if present
     if "content" in response:
