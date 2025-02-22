@@ -4,7 +4,8 @@ from utils.api_utils import send_request, is_valid_proxy_url, create_json_data, 
 from utils.db_utils import (
     save_post_data, load_post_data, delete_post_data, save_request,
     get_saved_post_data_names, save_urls, load_urls, delete_urls,
-    get_saved_url_names, save_last_used_urls, load_last_used_urls
+    get_saved_url_names, save_last_used_urls, load_last_used_urls,
+    get_all_post_data, import_post_data
 )
 
 def show_url_settings():
@@ -218,6 +219,57 @@ def show():
                 st.success(f"Deleted {selected_data}")
                 st.session_state.selected_data = ""
                 st.rerun()
+
+        # Export/Import buttons
+        st.subheader("データのエクスポート/インポート")
+
+        # エクスポートボタン
+        if st.button("POSTデータをエクスポート"):
+            with st.spinner("POSTデータをエクスポート中..."):
+                # Get all saved POST data
+                all_data = get_all_post_data()
+
+                if all_data:
+                    # Convert to JSON
+                    json_str = json.dumps(all_data, ensure_ascii=False, indent=2)
+
+                    # Create download button
+                    st.download_button(
+                        label="JSONファイルをダウンロード",
+                        data=json_str,
+                        file_name="post_data_export.json",
+                        mime="application/json"
+                    )
+                else:
+                    st.warning("エクスポートできるPOSTデータがありません")
+
+        # インポート機能
+        uploaded_file = st.file_uploader(
+            "JSONファイルをインポート",
+            type=["json"],
+            help="エクスポートされたPOSTデータのJSONファイルを選択してください"
+        )
+
+        if uploaded_file is not None:
+            try:
+                import_data = json.load(uploaded_file)
+
+                if st.button("インポートを実行"):
+                    with st.spinner("POSTデータをインポート中..."):
+                        success, errors = import_post_data(import_data)
+
+                        if success > 0:
+                            st.success(f"{success}件のデータをインポートしました")
+                        if errors > 0:
+                            st.error(f"{errors}件のデータをインポートできませんでした")
+
+                        # Refresh the page to show new data
+                        st.experimental_rerun()
+
+            except Exception as e:
+                st.error("JSONファイルの読み込みに失敗しました")
+                st.error(f"エラー: {str(e)}")
+
 
     # フォーム送信フラグをリセット
     if st.session_state.form_submitted:

@@ -238,3 +238,50 @@ def load_last_used_urls():
         "target_url": results.get("last_target_url", ""),
         "proxy_url": results.get("last_proxy_url", "")
     }
+
+def get_all_post_data():
+    """Get all saved POST data"""
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('SELECT name, data FROM saved_post_data')
+    results = c.fetchall()
+    conn.close()
+
+    return {row[0]: json.loads(row[1]) for row in results}
+
+def import_post_data(import_data):
+    """
+    Import POST data from dictionary
+    Returns tuple: (success_count, error_count)
+    """
+    success = 0
+    errors = 0
+
+    conn = get_db_connection()
+    c = conn.cursor()
+
+    for name, data in import_data.items():
+        try:
+            # Validate data structure
+            if not isinstance(data, dict):
+                errors += 1
+                continue
+
+            if "question" not in data or "overrides" not in data:
+                errors += 1
+                continue
+
+            # Save to database
+            c.execute(
+                'INSERT OR REPLACE INTO saved_post_data (name, data) VALUES (?, ?)',
+                (name, json.dumps(data))
+            )
+            success += 1
+
+        except Exception:
+            errors += 1
+
+    conn.commit()
+    conn.close()
+
+    return success, errors
