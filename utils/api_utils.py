@@ -92,8 +92,29 @@ def display_response(response):
 
     if "data_points" in response:
         st.subheader("データポイント")
-        for point in response["data_points"]:
-            st.write(f"- {point}")
+
+        # カードスタイルのCSS
+        st.markdown("""
+        <style>
+        .data-point-card {
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e0e0e0;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # データポイントをカード形式で表示
+        for i, point in enumerate(response["data_points"], 1):
+            with st.container():
+                st.markdown(f"""
+                <div class="data-point-card">
+                    <p>{i}. {point}</p>
+                </div>
+                """, unsafe_allow_html=True)
 
     # If response is not JSON formatted
     if "content" in response:
