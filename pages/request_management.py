@@ -73,12 +73,12 @@ def show():
 
         # Export to CSV
         if st.button("Export to CSV"):
-            csv = requests.to_csv(index=False)
+            csv = requests.to_csv(index=False, encoding='utf-8-sig')
             st.download_button(
                 label="Download CSV",
                 data=csv,
                 file_name="requests_export.csv",
-                mime="text/csv"
+                mime="text/csv",
             )
 
         # Delete requests
