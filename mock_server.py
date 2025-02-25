@@ -22,12 +22,12 @@ async def chat(request: ChatRequest):
 
         # Normal response
         return {
-            "answer": f"This is a mock answer for: {request.question}",
-            "thoughts": "Mock thought process explanation",
+            "answer": f"これは質問「{request.question}」に対するモック回答です。",
+            "thoughts": "モックの思考プロセスの説明です。",
             "data_points": [
-                "Mock reference 1",
-                "Mock reference 2",
-                "Mock reference 3"
+                "参照文献1：日本語のテストデータです。",
+                "参照文献2：こちらもテストデータとして日本語を含みます。",
+                "参照文献3：最後のテストデータポイントです。"
             ]
         }
     except HTTPException:
