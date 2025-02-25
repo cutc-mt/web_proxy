@@ -129,7 +129,7 @@ def save_request(target_url, post_data, response, proxy_url=None):
 
 def load_requests_summary():
     conn = get_db_connection()
-    
+
     query = '''
         SELECT 
             request_time,
@@ -142,38 +142,50 @@ def load_requests_summary():
         FROM requests
         ORDER BY request_time DESC
     '''
-    
+
     df = pd.read_sql_query(query, conn)
     conn.close()
-    
+
     if not df.empty:
         # Process response column
         def extract_response_data(row):
             try:
-                response = json.loads(row['response'])
+                # 文字列として保存されているJSONデータを適切にデコード
+                if isinstance(row['response'], str):
+                    response = json.loads(row['response'])
+                else:
+                    response = row['response']
+
+                # データポイントを文字列として結合
+                data_points = response.get('data_points', [])
+                if data_points:
+                    data_points_str = "\n".join([f"{i+1}. {point}" for i, point in enumerate(data_points)])
+                else:
+                    data_points_str = ""
+
                 return {
                     'error': response.get('error', ''),
                     'answer': response.get('answer', ''),
                     'thoughts': response.get('thoughts', ''),
-                    'data_points': json.dumps(response.get('data_points', []))
+                    'data_points': data_points_str
                 }
-            except:
+            except Exception as e:
                 return {
-                    'error': str(row['response'])[:100],
+                    'error': str(row['response'])[:100] if row['response'] else '',
                     'answer': '',
                     'thoughts': '',
                     'data_points': ''
                 }
-        
+
         response_data = df.apply(extract_response_data, axis=1)
         for key in ['error', 'answer', 'thoughts', 'data_points']:
             df[key] = response_data.apply(lambda x: x[key])
-        
+
         # Create post_data preview
         df['post_data_preview'] = df['post_data'].apply(
             lambda x: json.loads(x)['question'][:50] + '...' if len(json.loads(x)['question']) > 50 else json.loads(x)['question']
         )
-    
+
     return df
 
 def delete_request(request_name):
