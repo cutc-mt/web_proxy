@@ -73,12 +73,23 @@ def show():
 
         # Export to CSV
         if st.button("Export to CSV"):
-            csv = requests.to_csv(index=False, encoding='utf-8-sig')
+            # エクスポート用のデータフレームを準備
+            export_df = requests[selected_columns].copy()
+
+            # 日本語文字列を適切にエンコード
+            for col in export_df.columns:
+                if export_df[col].dtype == 'object':
+                    export_df[col] = export_df[col].fillna('').astype(str)
+
+            # CSVデータを生成（BOMありUTF-8）
+            csv_data = export_df.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+
+            # ダウンロードボタンを表示
             st.download_button(
                 label="Download CSV",
-                data=csv,
+                data=csv_data,
                 file_name="requests_export.csv",
-                mime="text/csv",
+                mime="text/csv;charset=utf-8-sig"
             )
 
         # Delete requests
