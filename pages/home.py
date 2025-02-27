@@ -353,7 +353,6 @@ def show():
             )
 
             if response:
-                display_response(response)
                 # Save request to database
                 save_request(
                     target_url=st.session_state.target_url,
@@ -361,4 +360,7 @@ def show():
                     response=json.dumps(response) if isinstance(response, dict) else response,
                     proxy_url=st.session_state.proxy_url
                 )
-                st.rerun()
+                # Save response to session state for display
+                st.session_state.last_response = response
+                # Display the response
+                display_response(response)
