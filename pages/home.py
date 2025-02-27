@@ -113,20 +113,35 @@ def load_saved_data(name):
     if name:
         data = load_post_data(name)
         if data:
+            print(f"Loading saved data: {data}")  # デバッグログ
             # Update question
             if "question" in data:
                 st.session_state.question = data["question"]
+                st.session_state.question_input = data["question"]  # 入力フィールドも更新
 
             # Update overrides
             if "overrides" in data:
                 overrides = data["overrides"]
                 st.session_state.retrieval_mode = overrides.get("retrieval_mode", "hybrid")
+                st.session_state.retrieval_mode_input = overrides.get("retrieval_mode", "hybrid")
+
                 st.session_state.semantic_ranker = overrides.get("semantic_ranker", False)
+                st.session_state.semantic_ranker_input = overrides.get("semantic_ranker", False)
+
                 st.session_state.semantic_captions = overrides.get("semantic_captions", False)
+                st.session_state.semantic_captions_input = overrides.get("semantic_captions", False)
+
                 st.session_state.top = overrides.get("top", 3)
+                st.session_state.top_input = overrides.get("top", 3)
+
                 st.session_state.temperature = overrides.get("temperature", 0.3)
+                st.session_state.temperature_input = overrides.get("temperature", 0.3)
+
                 st.session_state.prompt_template = overrides.get("prompt_template", "")
+                st.session_state.prompt_template_input = overrides.get("prompt_template", "")
+
                 st.session_state.exclude_category = overrides.get("exclude_category", "")
+                st.session_state.exclude_category_input = overrides.get("exclude_category", "")
             return True
     return False
 
@@ -187,15 +202,15 @@ def show():
         if st.button("保存"):
             if save_name:
                 current_data = {
-                    "question": st.session_state.question,
+                    "question": st.session_state.question_input,  # 入力フィールドから直接取得
                     "overrides": {
-                        "retrieval_mode": st.session_state.retrieval_mode,
-                        "semantic_ranker": st.session_state.semantic_ranker,
-                        "semantic_captions": st.session_state.semantic_captions,
-                        "top": st.session_state.top,
-                        "temperature": st.session_state.temperature,
-                        "prompt_template": st.session_state.prompt_template,
-                        "exclude_category": st.session_state.exclude_category
+                        "retrieval_mode": st.session_state.retrieval_mode_input,
+                        "semantic_ranker": st.session_state.semantic_ranker_input,
+                        "semantic_captions": st.session_state.semantic_captions_input,
+                        "top": st.session_state.top_input,
+                        "temperature": st.session_state.temperature_input,
+                        "prompt_template": st.session_state.prompt_template_input,
+                        "exclude_category": st.session_state.exclude_category_input
                     }
                 }
                 save_post_data(save_name, current_data)

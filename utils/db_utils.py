@@ -74,21 +74,35 @@ def initialize_session_state():
 def save_post_data(name, data):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute('INSERT OR REPLACE INTO saved_post_data (name, data) VALUES (?, ?)',
-              (name, json.dumps(data)))
-    conn.commit()
-    conn.close()
+    try:
+        json_data = json.dumps(data)
+        print(f"Saving POST data: {name}, Data: {json_data}")  # デバッグログ
+        c.execute('INSERT OR REPLACE INTO saved_post_data (name, data) VALUES (?, ?)',
+                  (name, json_data))
+        conn.commit()
+    except Exception as e:
+        print(f"Error saving POST data: {e}")  # エラーログ
+        raise
+    finally:
+        conn.close()
 
 def load_post_data(name):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute('SELECT data FROM saved_post_data WHERE name = ?', (name,))
-    result = c.fetchone()
-    conn.close()
-    
-    if result:
-        return json.loads(result[0])
-    return None
+    try:
+        c.execute('SELECT data FROM saved_post_data WHERE name = ?', (name,))
+        result = c.fetchone()
+        if result:
+            data = json.loads(result[0])
+            print(f"Loaded POST data for {name}: {data}")  # デバッグログ
+            return data
+        print(f"No data found for {name}")  # デバッグログ
+        return None
+    except Exception as e:
+        print(f"Error loading POST data: {e}")  # エラーログ
+        return None
+    finally:
+        conn.close()
 
 def get_saved_post_data_names():
     conn = get_db_connection()
