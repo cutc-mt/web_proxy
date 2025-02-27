@@ -105,25 +105,26 @@ def delete_post_data(name):
     conn.commit()
     conn.close()
 
-def save_request(target_url, post_data, response, proxy_url=None):
+def save_request(target_url, post_data, response, proxy_url=None, request_name=None):
     conn = get_db_connection()
     c = conn.cursor()
-    
+
     request_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    request_name = f"Request_{request_time}"
-    
+    if not request_name:
+        request_name = f"Request_{request_time}"
+
     try:
         response_dict = json.loads(response) if isinstance(response, str) else response
         status_code = response_dict.get('status_code', 0)
     except:
         status_code = 0
-    
+
     c.execute('''
         INSERT INTO requests 
         (request_time, request_name, url, proxy_url, post_data, response, status_code)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     ''', (request_time, request_name, target_url, proxy_url, post_data, response, status_code))
-    
+
     conn.commit()
     conn.close()
 

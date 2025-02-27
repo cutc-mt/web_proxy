@@ -324,6 +324,14 @@ def show():
             key="exclude_category_input",
         )
 
+        # リクエスト名入力フィールド（オプショナル）
+        request_name = st.text_input(
+            "リクエスト名（オプショナル）",
+            value="",
+            key="request_name_input",
+            help="リクエストを識別するための名前を指定できます。空の場合は自動生成されます。"
+        )
+
         # Update session state before sending request
         if st.button("リクエスト送信", type="primary"):
             if not st.session_state.question_input:
@@ -353,12 +361,13 @@ def show():
             )
 
             if response:
-                # Save request to database
+                # Save request to database with optional request name
                 save_request(
                     target_url=st.session_state.target_url,
                     post_data=json.dumps(post_data),
                     response=json.dumps(response) if isinstance(response, dict) else response,
-                    proxy_url=st.session_state.proxy_url
+                    proxy_url=st.session_state.proxy_url,
+                    request_name=request_name if request_name else None
                 )
                 # Save response to session state for display
                 st.session_state.last_response = response
