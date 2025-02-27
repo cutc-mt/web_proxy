@@ -28,6 +28,7 @@ wheels/
 *.db
 *.sqlite
 *.sqlite3
+config.db
 
 # IDE
 .idea/
