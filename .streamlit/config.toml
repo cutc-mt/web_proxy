@@ -12,3 +12,6 @@ textColor = "#262730"
 [client]
 toolbarMode = "minimal"
 showSidebarNavigation = false
+
+[logger]
+level = "error"
