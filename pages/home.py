@@ -263,8 +263,9 @@ def show():
 
 
     with col1:
+        # Question input
         st.text_area(
-            label="Question (Required)",
+            label="質問内容を入力してください",
             value=st.session_state.question,
             key="question_input",
             height=200
@@ -272,7 +273,7 @@ def show():
 
         st.subheader("オーバーライド設定")
         st.selectbox(
-            "Retrieval Mode",
+            "検索モード",
             ["hybrid", "vectors", "text"],
             index=["hybrid", "vectors", "text"].index(st.session_state.retrieval_mode),
             key="retrieval_mode_input",
@@ -281,20 +282,20 @@ def show():
         col_a, col_b = st.columns(2)
         with col_a:
             st.checkbox(
-                "Semantic Ranker",
+                "セマンティックランカー",
                 value=st.session_state.semantic_ranker,
                 key="semantic_ranker_input",
             )
 
             st.checkbox(
-                "Semantic Captions",
+                "セマンティックキャプション",
                 value=st.session_state.semantic_captions,
                 key="semantic_captions_input",
             )
 
         with col_b:
             st.number_input(
-                "Top Results",
+                "上位結果数",
                 min_value=1,
                 max_value=50,
                 value=st.session_state.top,
@@ -302,7 +303,7 @@ def show():
             )
 
             st.number_input(
-                "Temperature",
+                "温度パラメータ",
                 min_value=0.0,
                 max_value=1.0,
                 value=st.session_state.temperature,
@@ -311,51 +312,53 @@ def show():
             )
 
         st.text_area(
-            label="Prompt Template",
+            label="プロンプトテンプレート",
             value=st.session_state.prompt_template,
             key="prompt_template_input",
             height=100
         )
 
         st.text_input(
-            "Exclude Category",
+            "除外カテゴリー",
             value=st.session_state.exclude_category,
             key="exclude_category_input",
         )
 
-    # Send request
-    if st.button("リクエスト送信", type="primary"):
-        if not st.session_state.question:
-            st.error("質問を入力してください")
-            return
+        # Update session state before sending request
+        if st.button("リクエスト送信", type="primary"):
+            if not st.session_state.question_input:
+                st.error("質問を入力してください")
+                return
 
-        if not st.session_state.target_url:
-            st.error("ターゲットURLを入力してください")
-            return
+            if not st.session_state.target_url:
+                st.error("ターゲットURLを入力してください")
+                return
 
-        # Update session state from input values
-        st.session_state.question = st.session_state.question_input
-        st.session_state.retrieval_mode = st.session_state.retrieval_mode_input
-        st.session_state.semantic_ranker = st.session_state.semantic_ranker_input
-        st.session_state.semantic_captions = st.session_state.semantic_captions_input
-        st.session_state.top = st.session_state.top_input
-        st.session_state.temperature = st.session_state.temperature_input
-        st.session_state.prompt_template = st.session_state.prompt_template_input
-        st.session_state.exclude_category = st.session_state.exclude_category_input
+            # Update session state
+            st.session_state.question = st.session_state.question_input
+            st.session_state.retrieval_mode = st.session_state.retrieval_mode_input
+            st.session_state.semantic_ranker = st.session_state.semantic_ranker_input
+            st.session_state.semantic_captions = st.session_state.semantic_captions_input
+            st.session_state.top = st.session_state.top_input
+            st.session_state.temperature = st.session_state.temperature_input
+            st.session_state.prompt_template = st.session_state.prompt_template_input
+            st.session_state.exclude_category = st.session_state.exclude_category_input
 
-        post_data = create_json_data()
-        response = send_request(
-            st.session_state.target_url,
-            post_data,
-            st.session_state.proxy_url if st.session_state.proxy_url else None
-        )
-
-        if response:
-            display_response(response)
-            # Save request to database
-            save_request(
-                target_url=st.session_state.target_url,
-                post_data=json.dumps(post_data),
-                response=json.dumps(response) if isinstance(response, dict) else response,
-                proxy_url=st.session_state.proxy_url
+            # Create and send request
+            post_data = create_json_data()
+            response = send_request(
+                st.session_state.target_url,
+                post_data,
+                st.session_state.proxy_url if st.session_state.proxy_url else None
             )
+
+            if response:
+                display_response(response)
+                # Save request to database
+                save_request(
+                    target_url=st.session_state.target_url,
+                    post_data=json.dumps(post_data),
+                    response=json.dumps(response) if isinstance(response, dict) else response,
+                    proxy_url=st.session_state.proxy_url
+                )
+                st.rerun()
