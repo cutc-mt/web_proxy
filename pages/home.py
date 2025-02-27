@@ -264,10 +264,10 @@ def show():
 
     with col1:
         st.text_area(
-            "Question (Required)",
+            label="Question (Required)",
             value=st.session_state.question,
             key="question_input",
-            on_change=lambda: setattr(st.session_state, "question", st.session_state.question_input)
+            height=200
         )
 
         st.subheader("オーバーライド設定")
@@ -276,7 +276,6 @@ def show():
             ["hybrid", "vectors", "text"],
             index=["hybrid", "vectors", "text"].index(st.session_state.retrieval_mode),
             key="retrieval_mode_input",
-            on_change=lambda: setattr(st.session_state, "retrieval_mode", st.session_state.retrieval_mode_input)
         )
 
         col_a, col_b = st.columns(2)
@@ -285,14 +284,12 @@ def show():
                 "Semantic Ranker",
                 value=st.session_state.semantic_ranker,
                 key="semantic_ranker_input",
-                on_change=lambda: setattr(st.session_state, "semantic_ranker", st.session_state.semantic_ranker_input)
             )
 
             st.checkbox(
                 "Semantic Captions",
                 value=st.session_state.semantic_captions,
                 key="semantic_captions_input",
-                on_change=lambda: setattr(st.session_state, "semantic_captions", st.session_state.semantic_captions_input)
             )
 
         with col_b:
@@ -302,7 +299,6 @@ def show():
                 max_value=50,
                 value=st.session_state.top,
                 key="top_input",
-                on_change=lambda: setattr(st.session_state, "top", st.session_state.top_input)
             )
 
             st.number_input(
@@ -312,21 +308,19 @@ def show():
                 value=st.session_state.temperature,
                 step=0.1,
                 key="temperature_input",
-                on_change=lambda: setattr(st.session_state, "temperature", st.session_state.temperature_input)
             )
 
         st.text_area(
-            "Prompt Template",
+            label="Prompt Template",
             value=st.session_state.prompt_template,
             key="prompt_template_input",
-            on_change=lambda: setattr(st.session_state, "prompt_template", st.session_state.prompt_template_input)
+            height=100
         )
 
         st.text_input(
             "Exclude Category",
             value=st.session_state.exclude_category,
             key="exclude_category_input",
-            on_change=lambda: setattr(st.session_state, "exclude_category", st.session_state.exclude_category_input)
         )
 
     # Send request
@@ -338,6 +332,16 @@ def show():
         if not st.session_state.target_url:
             st.error("ターゲットURLを入力してください")
             return
+
+        # Update session state from input values
+        st.session_state.question = st.session_state.question_input
+        st.session_state.retrieval_mode = st.session_state.retrieval_mode_input
+        st.session_state.semantic_ranker = st.session_state.semantic_ranker_input
+        st.session_state.semantic_captions = st.session_state.semantic_captions_input
+        st.session_state.top = st.session_state.top_input
+        st.session_state.temperature = st.session_state.temperature_input
+        st.session_state.prompt_template = st.session_state.prompt_template_input
+        st.session_state.exclude_category = st.session_state.exclude_category_input
 
         post_data = create_json_data()
         response = send_request(
