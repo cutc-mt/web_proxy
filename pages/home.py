@@ -131,16 +131,8 @@ def load_saved_data(name):
     return False
 
 def reset_form():
-    # Reset all form fields to default values
+    # Reset only specific form fields to default values
     defaults = {
-        "question": "",
-        "retrieval_mode": "hybrid",
-        "semantic_ranker": False,
-        "semantic_captions": False,
-        "top": 3,
-        "temperature": 0.3,
-        "prompt_template": "",
-        "exclude_category": "",
         "selected_data": "",
         "save_name": "",
         "form_submitted": True  # フォーム送信フラグを設定
@@ -208,8 +200,7 @@ def show():
                 }
                 save_post_data(save_name, current_data)
                 st.success(f"{save_name}として保存しました")
-                # Reset form after successful save
-                reset_form()
+                reset_form()  # 保存時のみフォームをリセット
                 st.rerun()
             else:
                 st.error("保存名を入力してください")
