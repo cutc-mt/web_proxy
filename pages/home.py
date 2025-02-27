@@ -113,7 +113,6 @@ def load_saved_data(name):
     if name:
         data = load_post_data(name)
         if data:
-            print(f"Loading saved data: {data}")  # デバッグログ
             # Update question
             if "question" in data:
                 st.session_state.question = data["question"]
