@@ -12,17 +12,28 @@ def is_valid_proxy_url(url):
         return False
 
 def create_json_data():
+    """POSTリクエスト用のJSONデータを作成する
+
+    Returns:
+        dict: リクエストに使用するJSONデータ
+
+    Note:
+        現在のロードカウントに基づいてウィジェットの値を取得
+    """
+    load_count = st.session_state.get("load_count", 0)
+    current_key = lambda name: f"{name}_{load_count}"
+
     return {
-        "question": st.session_state.question,
+        "question": st.session_state[current_key("question")],
         "approach": "rtr",
         "overrides": {
-            "retrieval_mode": st.session_state.retrieval_mode,
-            "semantic_ranker": st.session_state.semantic_ranker,
-            "semantic_captions": st.session_state.semantic_captions,
-            "top": st.session_state.top,
-            "temperature": st.session_state.temperature,
-            "prompt_template": st.session_state.prompt_template,
-            "exclude_category": st.session_state.exclude_category
+            "retrieval_mode": st.session_state[current_key("retrieval_mode")],
+            "semantic_ranker": st.session_state[current_key("semantic_ranker")],
+            "semantic_captions": st.session_state[current_key("semantic_captions")],
+            "top": st.session_state[current_key("top")],
+            "temperature": st.session_state[current_key("temperature")],
+            "prompt_template": st.session_state[current_key("prompt_template")],
+            "exclude_category": st.session_state[current_key("exclude_category")]
         }
     }
 

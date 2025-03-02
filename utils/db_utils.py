@@ -5,7 +5,8 @@ from datetime import datetime
 import streamlit as st
 
 def get_db_connection():
-    return sqlite3.connect('config.db')
+    """データベース接続を取得し、コンテキストマネージャとして使用できるようにする"""
+    return sqlite3.connect('config.db', detect_types=sqlite3.PARSE_DECLTYPES)
 
 def init_db():
     conn = get_db_connection()
@@ -52,94 +53,175 @@ def init_db():
     conn.close()
 
 def initialize_session_state():
-    defaults = {
-        "proxy_url": "",
-        "target_url": "",
-        "question": "",
-        "retrieval_mode": "hybrid",
-        "semantic_ranker": False,
-        "semantic_captions": False,
-        "top": 3,
-        "temperature": 0.3,
-        "prompt_template": "",
-        "exclude_category": "",
-        "selected_data": "",
-        "save_name": ""
-    }
+    """基本的なデータベース関連のセッション状態を初期化する
     
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
+    注意:
+        この関数はアプリケーション起動時に一度だけ呼び出されるべきです。
+        UIに関連する状態の初期化は行いません。
+    """
+    if "db_initialized" not in st.session_state:
+        st.session_state.db_initialized = True
+        st.session_state.proxy_url = ""
+        st.session_state.target_url = ""
 
 def save_post_data(name, data):
-    conn = get_db_connection()
-    c = conn.cursor()
-    try:
-        c.execute('INSERT OR REPLACE INTO saved_post_data (name, data) VALUES (?, ?)',
-                  (name, json.dumps(data)))
-        conn.commit()
-    except Exception as e:
-        raise
-    finally:
-        conn.close()
+    """POSTデータを保存する
+    
+    Args:
+        name (str): 保存するデータの名前
+        data (dict): 保存するデータ
+    
+    Raises:
+        ValueError: nameが空の場合、またはdataが不正な形式の場合
+        sqlite3.Error: データベース操作に失敗した場合
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError("名前は空にできません")
+    if not isinstance(data, dict):
+        raise ValueError("dataはdict型である必要があります")
+    
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        try:
+            c.execute('INSERT OR REPLACE INTO saved_post_data (name, data) VALUES (?, ?)',
+                     (name, json.dumps(data)))
+            conn.commit()
+        except sqlite3.Error as e:
+            conn.rollback()
+            raise sqlite3.Error(f"データの保存に失敗しました: {str(e)}")
 
 def load_post_data(name):
-    conn = get_db_connection()
-    c = conn.cursor()
-    try:
-        c.execute('SELECT data FROM saved_post_data WHERE name = ?', (name,))
-        result = c.fetchone()
-        if result:
-            return json.loads(result[0])
-        return None
-    except Exception as e:
-        return None
-    finally:
-        conn.close()
+    """保存されたPOSTデータを読み込む
+    
+    Args:
+        name (str): 読み込むデータの名前
+    
+    Returns:
+        dict or None: 保存されたデータ。存在しない場合はNone
+    
+    Raises:
+        ValueError: nameが空の場合
+        sqlite3.Error: データベース操作に失敗した場合
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError("名前は空にできません")
+        
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        try:
+            c.execute('SELECT data FROM saved_post_data WHERE name = ?', (name,))
+            result = c.fetchone()
+            if result:
+                return json.loads(result[0])
+            return None
+        except sqlite3.Error as e:
+            raise sqlite3.Error(f"データの読み込みに失敗しました: {str(e)}")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"保存されたデータの形式が不正です: {str(e)}")
 
 def get_saved_post_data_names():
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('SELECT name FROM saved_post_data')
-    names = [row[0] for row in c.fetchall()]
-    conn.close()
-    return names
+    """保存されているPOSTデータの名前リストを取得する
+
+    Returns:
+        list[str]: 保存されているデータの名前リスト
+
+    Raises:
+        sqlite3.Error: データベース操作に失敗した場合
+    """
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        try:
+            c.execute('SELECT name FROM saved_post_data')
+            return [row[0] for row in c.fetchall()]
+        except sqlite3.Error as e:
+            raise sqlite3.Error(f"データ名の取得に失敗しました: {str(e)}")
 
 def delete_post_data(name):
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('DELETE FROM saved_post_data WHERE name = ?', (name,))
-    conn.commit()
-    conn.close()
+    """保存されたPOSTデータを削除する
+
+    Args:
+        name (str): 削除するデータの名前
+
+    Raises:
+        ValueError: nameが空または不正な形式の場合
+        sqlite3.Error: データベース操作に失敗した場合
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError("名前は空にできません")
+
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        try:
+            c.execute('DELETE FROM saved_post_data WHERE name = ?', (name,))
+            conn.commit()
+        except sqlite3.Error as e:
+            conn.rollback()
+            raise sqlite3.Error(f"データの削除に失敗しました: {str(e)}")
 
 def save_request(target_url, post_data, response, proxy_url=None, request_name=None):
-    conn = get_db_connection()
-    c = conn.cursor()
+    """リクエスト情報をデータベースに保存する
+
+    Args:
+        target_url (str): リクエスト先URL
+        post_data (str): POSTデータ
+        response (str or dict): レスポンスデータ
+        proxy_url (str, optional): プロキシURL
+        request_name (str, optional): リクエスト名
+
+    Raises:
+        ValueError: 必須パラメータが不正な場合
+        sqlite3.Error: データベース操作に失敗した場合
+    """
+    if not target_url or not isinstance(target_url, str):
+        raise ValueError("target_urlは必須で、文字列である必要があります")
+    if not post_data or not isinstance(post_data, str):
+        raise ValueError("post_dataは必須で、文字列である必要があります")
 
     request_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     if not request_name:
         request_name = f"Request_{request_time}"
 
+    # レスポンスの処理
     try:
-        response_dict = json.loads(response) if isinstance(response, str) else response
+        if isinstance(response, str):
+            response_dict = json.loads(response)
+        elif isinstance(response, dict):
+            response_dict = response
+        else:
+            raise ValueError("responseは文字列またはdict型である必要があります")
+        
         status_code = response_dict.get('status_code', 0)
-    except:
-        status_code = 0
+        response_str = json.dumps(response_dict)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"responseのJSON形式が不正です: {str(e)}")
+    except Exception as e:
+        raise ValueError(f"responseの処理中にエラーが発生しました: {str(e)}")
 
-    c.execute('''
-        INSERT INTO requests 
-        (request_time, request_name, url, proxy_url, post_data, response, status_code)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (request_time, request_name, target_url, proxy_url, post_data, response, status_code))
-
-    conn.commit()
-    conn.close()
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        try:
+            c.execute('''
+                INSERT INTO requests
+                (request_time, request_name, url, proxy_url, post_data, response, status_code)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (request_time, request_name, target_url, proxy_url, post_data, response_str, status_code))
+            conn.commit()
+        except sqlite3.Error as e:
+            conn.rollback()
+            raise sqlite3.Error(f"リクエスト情報の保存に失敗しました: {str(e)}")
 
 def load_requests_summary():
-    conn = get_db_connection()
+    """保存されたリクエスト情報の概要を取得する
 
+    Returns:
+        pd.DataFrame: リクエスト情報を含むDataFrame
+
+    Raises:
+        sqlite3.Error: データベース操作に失敗した場合
+        pd.io.sql.DatabaseError: SQLクエリの実行に失敗した場合
+    """
     query = '''
-        SELECT 
+        SELECT
             request_time,
             request_name,
             url,
@@ -151,171 +233,360 @@ def load_requests_summary():
         ORDER BY request_time DESC
     '''
 
-    df = pd.read_sql_query(query, conn)
-    conn.close()
+    with get_db_connection() as conn:
+        try:
+            df = pd.read_sql_query(query, conn)
+        except (sqlite3.Error, pd.io.sql.DatabaseError) as e:
+            raise sqlite3.Error(f"リクエスト情報の読み込みに失敗しました: {str(e)}")
 
     if not df.empty:
-        # Process response column
+        # レスポンスカラムの処理
         def extract_response_data(row):
+            """レスポンスデータから必要な情報を抽出する"""
             try:
-                # 文字列として保存されているJSONデータを適切にデコード
+                # レスポンスデータの解析
                 if isinstance(row['response'], str):
-                    response = json.loads(row['response'])
-                else:
+                    try:
+                        response = json.loads(row['response'])
+                    except json.JSONDecodeError:
+                        return {
+                            'error': 'JSONの解析に失敗しました',
+                            'answer': '',
+                            'thoughts': '',
+                            'data_points': ''
+                        }
+                elif isinstance(row['response'], dict):
                     response = row['response']
-
-                # データポイントを文字列として結合
-                data_points = response.get('data_points', [])
-                if data_points:
-                    data_points_str = "\n".join([f"{i+1}. {point}" for i, point in enumerate(data_points)])
                 else:
+                    return {
+                        'error': '不正なレスポンス形式です',
+                        'answer': '',
+                        'thoughts': '',
+                        'data_points': ''
+                    }
+
+                # データポイントの処理
+                try:
+                    data_points = response.get('data_points', [])
+                    if not isinstance(data_points, list):
+                        data_points = []
+                    data_points_str = "\n".join([f"{i+1}. {point}" for i, point in enumerate(data_points)])
+                except Exception:
                     data_points_str = ""
 
                 return {
-                    'error': response.get('error', ''),
-                    'answer': response.get('answer', ''),
-                    'thoughts': response.get('thoughts', ''),
+                    'error': str(response.get('error', '')),
+                    'answer': str(response.get('answer', '')),
+                    'thoughts': str(response.get('thoughts', '')),
                     'data_points': data_points_str
                 }
             except Exception as e:
                 return {
-                    'error': str(row['response'])[:100] if row['response'] else '',
+                    'error': f"データの処理中にエラーが発生しました: {str(e)}",
                     'answer': '',
                     'thoughts': '',
                     'data_points': ''
                 }
 
+        # レスポンスデータの処理
         response_data = df.apply(extract_response_data, axis=1)
         for key in ['error', 'answer', 'thoughts', 'data_points']:
-            df[key] = response_data.apply(lambda x: x[key])
+            df[key] = response_data.apply(lambda x: x.get(key, ''))
 
-        # Create post_data preview
-        df['post_data_preview'] = df['post_data'].apply(
-            lambda x: json.loads(x)['question'][:50] + '...' if len(json.loads(x)['question']) > 50 else json.loads(x)['question']
-        )
+        # POSTデータのプレビュー作成
+        def create_post_data_preview(post_data):
+            """POSTデータからプレビューを生成する"""
+            try:
+                if not isinstance(post_data, str):
+                    return "不正なPOSTデータ"
+                    
+                data = json.loads(post_data)
+                if not isinstance(data, dict) or 'question' not in data:
+                    return "不正なPOSTデータ形式"
+                    
+                question = str(data['question'])
+                return f"{question[:50]}..." if len(question) > 50 else question
+            except json.JSONDecodeError:
+                return "JSONの解析に失敗"
+            except Exception as e:
+                return f"エラー: {str(e)}"
+
+        df['post_data_preview'] = df['post_data'].apply(create_post_data_preview)
 
     return df
 
 def delete_request(request_name):
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('DELETE FROM requests WHERE request_name = ?', (request_name,))
-    conn.commit()
-    conn.close()
+    """リクエスト情報を削除する
 
-# Add new functions for URL management
+    Args:
+        request_name (str): 削除するリクエストの名前
+
+    Raises:
+        ValueError: request_nameが空または不正な形式の場合
+        sqlite3.Error: データベース操作に失敗した場合
+    """
+    if not request_name or not isinstance(request_name, str):
+        raise ValueError("request_nameは空にできません")
+
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        try:
+            c.execute('DELETE FROM requests WHERE request_name = ?', (request_name,))
+            conn.commit()
+        except sqlite3.Error as e:
+            conn.rollback()
+            raise sqlite3.Error(f"リクエストの削除に失敗しました: {str(e)}")
+
 def save_urls(name, target_url, proxy_url=""):
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('INSERT OR REPLACE INTO saved_urls (name, target_url, proxy_url) VALUES (?, ?, ?)',
-              (name, target_url, proxy_url))
-    conn.commit()
-    conn.close()
+    """URLの組み合わせを保存する
+
+    Args:
+        name (str): 保存する名前
+        target_url (str): ターゲットURL
+        proxy_url (str, optional): プロキシURL
+
+    Raises:
+        ValueError: パラメータが不正な場合
+        sqlite3.Error: データベース操作に失敗した場合
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError("名前は空にできません")
+    if not target_url or not isinstance(target_url, str):
+        raise ValueError("target_urlは必須で、文字列である必要があります")
+    if not isinstance(proxy_url, str):
+        raise ValueError("proxy_urlは文字列である必要があります")
+
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        try:
+            c.execute('INSERT OR REPLACE INTO saved_urls (name, target_url, proxy_url) VALUES (?, ?, ?)',
+                     (name, target_url, proxy_url))
+            conn.commit()
+        except sqlite3.Error as e:
+            conn.rollback()
+            raise sqlite3.Error(f"URLの保存に失敗しました: {str(e)}")
 
 def load_urls(name):
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('SELECT target_url, proxy_url FROM saved_urls WHERE name = ?', (name,))
-    result = c.fetchone()
-    conn.close()
+    """保存されたURLの組み合わせを読み込む
 
-    if result:
-        return {"target_url": result[0], "proxy_url": result[1]}
-    return None
+    Args:
+        name (str): 読み込むデータの名前
+
+    Returns:
+        dict or None: {"target_url": str, "proxy_url": str} の形式。データが存在しない場合はNone
+
+    Raises:
+        ValueError: nameが不正な場合
+        sqlite3.Error: データベース操作に失敗した場合
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError("名前は空にできません")
+
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        try:
+            c.execute('SELECT target_url, proxy_url FROM saved_urls WHERE name = ?', (name,))
+            result = c.fetchone()
+            return {"target_url": result[0], "proxy_url": result[1]} if result else None
+        except sqlite3.Error as e:
+            raise sqlite3.Error(f"URLの読み込みに失敗しました: {str(e)}")
 
 def get_saved_url_names():
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('SELECT name FROM saved_urls')
-    names = [row[0] for row in c.fetchall()]
-    conn.close()
-    return names
+    """保存されているURLの名前リストを取得する
+
+    Returns:
+        list[str]: 保存されているURLの名前リスト
+
+    Raises:
+        sqlite3.Error: データベース操作に失敗した場合
+    """
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        try:
+            c.execute('SELECT name FROM saved_urls')
+            return [row[0] for row in c.fetchall()]
+        except sqlite3.Error as e:
+            raise sqlite3.Error(f"URL名の取得に失敗しました: {str(e)}")
 
 def delete_urls(name):
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('DELETE FROM saved_urls WHERE name = ?', (name,))
-    conn.commit()
-    conn.close()
+    """保存されたURLを削除する
+
+    Args:
+        name (str): 削除するURLの名前
+
+    Raises:
+        ValueError: nameが空または不正な形式の場合
+        sqlite3.Error: データベース操作に失敗した場合
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError("名前は空にできません")
+
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        try:
+            c.execute('DELETE FROM saved_urls WHERE name = ?', (name,))
+            conn.commit()
+        except sqlite3.Error as e:
+            conn.rollback()
+            raise sqlite3.Error(f"URLの削除に失敗しました: {str(e)}")
 
 def save_last_used_urls(target_url, proxy_url=""):
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
-              ("last_target_url", target_url))
-    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
-              ("last_proxy_url", proxy_url))
-    conn.commit()
-    conn.close()
+    """最後に使用したURLを保存する
+
+    Args:
+        target_url (str): ターゲットURL
+        proxy_url (str, optional): プロキシURL
+
+    Raises:
+        ValueError: パラメータが不正な場合
+        sqlite3.Error: データベース操作に失敗した場合
+    """
+    if not target_url or not isinstance(target_url, str):
+        raise ValueError("target_urlは必須で、文字列である必要があります")
+    if not isinstance(proxy_url, str):
+        raise ValueError("proxy_urlは文字列である必要があります")
+
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        try:
+            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+                     ("last_target_url", target_url))
+            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+                     ("last_proxy_url", proxy_url))
+            conn.commit()
+        except sqlite3.Error as e:
+            conn.rollback()
+            raise sqlite3.Error(f"最後に使用したURLの保存に失敗しました: {str(e)}")
 
 def load_last_used_urls():
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('SELECT key, value FROM settings WHERE key IN ("last_target_url", "last_proxy_url")')
-    results = dict(c.fetchall())
-    conn.close()
-    return {
-        "target_url": results.get("last_target_url", ""),
-        "proxy_url": results.get("last_proxy_url", "")
-    }
+    """最後に使用したURLを読み込む
+
+    Returns:
+        dict: {"target_url": str, "proxy_url": str} の形式
+
+    Raises:
+        sqlite3.Error: データベース操作に失敗した場合
+    """
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        try:
+            c.execute('SELECT key, value FROM settings WHERE key IN ("last_target_url", "last_proxy_url")')
+            results = dict(c.fetchall())
+            return {
+                "target_url": results.get("last_target_url", ""),
+                "proxy_url": results.get("last_proxy_url", "")
+            }
+        except sqlite3.Error as e:
+            raise sqlite3.Error(f"最後に使用したURLの読み込みに失敗しました: {str(e)}")
 
 def get_all_post_data():
-    """Get all saved POST data"""
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('SELECT name, data FROM saved_post_data')
-    results = c.fetchall()
-    conn.close()
+    """すべての保存されたPOSTデータを取得する
 
-    return {row[0]: json.loads(row[1]) for row in results}
+    Returns:
+        dict: {name: data} の形式で保存されているすべてのPOSTデータ
+
+    Raises:
+        sqlite3.Error: データベース操作に失敗した場合
+        json.JSONDecodeError: 保存されているデータの形式が不正な場合
+    """
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        try:
+            c.execute('SELECT name, data FROM saved_post_data')
+            results = c.fetchall()
+            data_dict = {}
+            for name, data_str in results:
+                try:
+                    data_dict[name] = json.loads(data_str)
+                except json.JSONDecodeError as e:
+                    raise json.JSONDecodeError(f"データ '{name}' のJSON形式が不正です: {str(e)}", e.doc, e.pos)
+            return data_dict
+        except sqlite3.Error as e:
+            raise sqlite3.Error(f"データの取得に失敗しました: {str(e)}")
 
 def import_post_data(import_data):
+    """POSTデータをインポートする
+
+    Args:
+        import_data (dict): インポートするデータ。{name: data} の形式。
+            各dataは "question" と "overrides" キーを含むdict型である必要があります。
+
+    Returns:
+        tuple: (成功件数, 失敗件数)
+
+    Raises:
+        ValueError: import_dataが不正な形式の場合
+        sqlite3.Error: データベース操作に失敗した場合
     """
-    Import POST data from dictionary
-    Returns tuple: (success_count, error_count)
-    """
+    if not isinstance(import_data, dict):
+        raise ValueError("import_dataはdict型である必要があります")
+
     success = 0
     errors = 0
 
-    conn = get_db_connection()
-    c = conn.cursor()
-
-    for name, data in import_data.items():
+    with get_db_connection() as conn:
+        c = conn.cursor()
         try:
-            # Validate data structure
-            if not isinstance(data, dict):
-                errors += 1
-                continue
+            for name, data in import_data.items():
+                try:
+                    # データ構造の検証
+                    if not isinstance(name, str) or not name:
+                        errors += 1
+                        continue
 
-            if "question" not in data or "overrides" not in data:
-                errors += 1
-                continue
+                    if not isinstance(data, dict):
+                        errors += 1
+                        continue
 
-            # Save to database
-            c.execute(
-                'INSERT OR REPLACE INTO saved_post_data (name, data) VALUES (?, ?)',
-                (name, json.dumps(data))
-            )
-            success += 1
+                    if "question" not in data or "overrides" not in data:
+                        errors += 1
+                        continue
 
-        except Exception:
-            errors += 1
+                    # データベースに保存
+                    try:
+                        c.execute(
+                            'INSERT OR REPLACE INTO saved_post_data (name, data) VALUES (?, ?)',
+                            (name, json.dumps(data))
+                        )
+                        success += 1
+                    except (sqlite3.Error, json.JSONEncodeError):
+                        errors += 1
 
-    conn.commit()
-    conn.close()
+                except Exception as e:
+                    errors += 1
 
-    return success, errors
+            conn.commit()
+            return success, errors
+
+        except sqlite3.Error as e:
+            conn.rollback()
+            raise sqlite3.Error(f"データのインポートに失敗しました: {str(e)}")
 
 def update_request_memo(request_name, memo):
-    """Update memo for a specific request"""
-    conn = get_db_connection()
-    c = conn.cursor()
+    """リクエストのメモを更新する
 
-    c.execute('''
-        UPDATE requests 
-        SET memo = ? 
-        WHERE request_name = ?
-    ''', (memo, request_name))
+    Args:
+        request_name (str): 更新するリクエストの名前
+        memo (str): 設定するメモ内容
 
-    conn.commit()
-    conn.close()
+    Raises:
+        ValueError: パラメータが不正な場合
+        sqlite3.Error: データベース操作に失敗した場合
+    """
+    if not request_name or not isinstance(request_name, str):
+        raise ValueError("request_nameは空にできません")
+    if not isinstance(memo, str):
+        raise ValueError("memoは文字列である必要があります")
+
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        try:
+            c.execute('''
+                UPDATE requests
+                SET memo = ?
+                WHERE request_name = ?
+            ''', (memo, request_name))
+            conn.commit()
+        except sqlite3.Error as e:
+            conn.rollback()
+            raise sqlite3.Error(f"メモの更新に失敗しました: {str(e)}")
