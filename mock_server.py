@@ -10,7 +10,7 @@ class ChatRequest(BaseModel):
     approach: str
     overrides: Dict[str, Any]
 
-@app.post("/chat")
+@app.post("/ask")
 async def chat(request: ChatRequest):
     try:
         # Basic validation

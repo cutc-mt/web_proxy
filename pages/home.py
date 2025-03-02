@@ -10,44 +10,13 @@ from utils.db_utils import (
 
 def show_url_settings():
     """URL設定フォームを表示して処理する"""
-    """URL設定フォームを表示し、設定を管理する"""
     st.subheader("URL設定")
-
-    # 保存済みURLの選択（フォームの外で処理）
-    saved_urls = get_saved_url_names()
-    selected_url_preset = st.selectbox(
-        "保存済みURLを読み込む",
-        [""] + saved_urls,
-        key="url_preset_input"
-    )
-
-    # プリセット選択時の処理
-    if selected_url_preset:
-        if selected_url_preset != st.session_state.get("last_loaded_preset"):
-            with st.spinner("URL設定を読み込み中..."):
-                urls = load_urls(selected_url_preset)
-                if urls:
-                    st.session_state.target_url = urls["target_url"]
-                    st.session_state.proxy_url = urls["proxy_url"]
-                    st.session_state.last_loaded_preset = selected_url_preset
-                    st.success(f"プリセット「{selected_url_preset}」を読み込みました")
-                    st.rerun()
 
     # フォームを開く
     with st.form("url_settings_form", clear_on_submit=False):
-        st.subheader("URL入力")
-
         # URLの初期値を設定
         initial_target_url = st.session_state.get("target_url", "")
         initial_proxy_url = st.session_state.get("proxy_url", "")
-
-        # プリセット保存用の名前入力
-        url_save_name = st.text_input(
-            "設定の保存名",
-            value="",
-            key="url_save_name",
-            help="プリセットとして保存する場合の名前を入力してください"
-        )
 
         # Target URLの入力フィールド
         target_url = st.text_input(
@@ -99,28 +68,17 @@ def show_url_settings():
 
             # 設定の保存
             with st.spinner("URL設定を保存中..."):
-                st.session_state.target_url = target_url
-                st.session_state.proxy_url = proxy_url
-                save_last_used_urls(target_url, proxy_url)
-
-                # プリセットとして保存（名前が入力されている場合）
-                if url_save_name:
-                    save_urls(url_save_name, target_url, proxy_url)
-                    st.success(f"プリセット「{url_save_name}」として保存しました")
-                else:
+                try:
+                    save_last_used_urls(target_url, proxy_url)
+                    st.session_state.target_url = target_url
+                    st.session_state.proxy_url = proxy_url
                     st.success("URL設定を保存しました")
-                return True
+                    return True
+                except Exception as e:
+                    st.error(f"URL設定の保存に失敗しました: {str(e)}")
+                    return False
 
     return False
-
-    # プリセットの削除ボタン（フォームの外に配置）
-    if selected_url_preset:
-        if st.button("選択したプリセットを削除", type="secondary"):
-            with st.spinner("URLプリセットを削除中..."):
-                delete_urls(selected_url_preset)
-                st.success(f"プリセット「{selected_url_preset}」を削除しました")
-                st.session_state.pop("last_loaded_preset", None)
-                st.rerun()
 def initialize_session_state():
     """UIの状態を初期化する
 
@@ -144,8 +102,17 @@ def initialize_session_state():
         if key not in st.session_state:
             st.session_state[key] = value
 
-    # URLの読み込みはdb_utils.initialize_session_stateで管理
-    # URLの読み込みはdb_utils.initialize_session_stateに移動済み
+    # 保存されたURLを自動的に読み込む
+    if "target_url" not in st.session_state:
+        try:
+            urls = load_last_used_urls()
+            if urls and urls["target_url"]:  # target_urlが空でない場合のみ設定
+                st.session_state.target_url = urls["target_url"]
+                st.session_state.proxy_url = urls["proxy_url"]
+        except Exception as e:
+            st.error(f"URL設定の読み込みに失敗しました: {str(e)}")
+            st.session_state.target_url = ""
+            st.session_state.proxy_url = ""
 
 def get_widget_key(base_name):
     """ウィジェットのキーを生成する
@@ -194,8 +161,17 @@ def reset_form():
 def show():
     st.title("Webリクエストマネージャー")
 
-    # Initialize session state
-    initialize_session_state()
+    # Initialize session state and load saved URLs
+    if "initialized" not in st.session_state:
+        initialize_session_state()
+        try:
+            urls = load_last_used_urls()
+            if urls and urls["target_url"]:
+                st.session_state.target_url = urls["target_url"]
+                st.session_state.proxy_url = urls["proxy_url"]
+        except Exception as e:
+            st.error(f"URL設定の読み込みに失敗しました: {str(e)}")
+        st.session_state.initialized = True
 
     # URL Settings Button in the header
     if st.button("⚙️ URL設定"):
