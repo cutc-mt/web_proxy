@@ -27,7 +27,7 @@ def show():
     selected_columns = st.multiselect(
         "Select columns to display",
         list(columns.keys()),
-        default=["request_time", "request_name", "url", "status_code", "error", "memo"],
+        default=["request_time", "request_name", "answer", "data_points", "memo"],
         format_func=lambda x: columns[x]
     )
 
