@@ -16,18 +16,19 @@ def show():
         "request_name": "Request Name",
         "url": "URL",
         "status_code": "Status Code",
-        "post_data_preview": "POST Data Preview",
+        "question": "Question",
         "error": "Error",
         "answer": "Answer",
         "thoughts": "Thoughts",
         "data_points": "Data Points",
+        "prompt_template": "Prompt Template",
         "memo": "Memo"
     }
 
     selected_columns = st.multiselect(
         "Select columns to display",
         list(columns.keys()),
-        default=["request_time", "request_name", "answer", "data_points", "memo"],
+        default=["request_time", "request_name", "question", "prompt_template", "answer", "data_points", "memo"],
         format_func=lambda x: columns[x]
     )
 

@@ -45,7 +45,8 @@ def init_db():
             post_data TEXT,
             response TEXT,
             status_code INTEGER,
-            memo TEXT
+            memo TEXT,
+            prompt_template TEXT
         )
     ''')
 
@@ -200,11 +201,32 @@ def save_request(target_url, post_data, response, proxy_url=None, request_name=N
     with get_db_connection() as conn:
         c = conn.cursor()
         try:
+            # POSTデータからprompt_templateを抽出
+            prompt_template = ""
+            try:
+                post_data_dict = json.loads(post_data)
+                if isinstance(post_data_dict, dict):
+                    # 1. promptsキーの中のprompt_template
+                    if ('prompts' in post_data_dict and
+                        isinstance(post_data_dict['prompts'], dict) and
+                        'prompt_template' in post_data_dict['prompts']):
+                        prompt_template = str(post_data_dict['prompts']['prompt_template'])
+                    # 2. トップレベルのprompt_template
+                    elif 'prompt_template' in post_data_dict:
+                        prompt_template = str(post_data_dict['prompt_template'])
+                    # 3. overridesの中のprompt_template
+                    elif ('overrides' in post_data_dict and
+                          isinstance(post_data_dict['overrides'], dict) and
+                          'prompt_template' in post_data_dict['overrides']):
+                        prompt_template = str(post_data_dict['overrides']['prompt_template'])
+            except (json.JSONDecodeError, AttributeError) as e:
+                st.error(f"prompt_templateの抽出中にエラーが発生しました: {str(e)}")
+
             c.execute('''
                 INSERT INTO requests
-                (request_time, request_name, url, proxy_url, post_data, response, status_code)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (request_time, request_name, target_url, proxy_url, post_data, response_str, status_code))
+                (request_time, request_name, url, proxy_url, post_data, response, status_code, prompt_template)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (request_time, request_name, target_url, proxy_url, post_data, response_str, status_code, prompt_template))
             conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
@@ -228,7 +250,15 @@ def load_requests_summary():
             status_code,
             post_data,
             response,
-            memo
+            memo,
+            prompt_template,
+            COALESCE(
+                prompt_template,
+                json_extract(post_data, '$.prompts.prompt_template'),
+                json_extract(post_data, '$.prompt_template'),
+                json_extract(post_data, '$.overrides.prompt_template'),
+                ''
+            ) as effective_prompt_template
         FROM requests
         ORDER BY request_time DESC
     '''
@@ -270,7 +300,7 @@ def load_requests_summary():
                     data_points = response.get('data_points', [])
                     if not isinstance(data_points, list):
                         data_points = []
-                    data_points_str = "\n".join([f"{i+1}. {point}" for i, point in enumerate(data_points)])
+                    data_points_str = "\n=========================\n".join([f"{i+1}. {point}" for i, point in enumerate(data_points)])
                 except Exception:
                     data_points_str = ""
 
@@ -293,25 +323,33 @@ def load_requests_summary():
         for key in ['error', 'answer', 'thoughts', 'data_points']:
             df[key] = response_data.apply(lambda x: x.get(key, ''))
 
-        # POSTデータのプレビュー作成
-        def create_post_data_preview(post_data):
-            """POSTデータからプレビューを生成する"""
+        # POSTデータからquestionとprompt_templateを抽出
+        def extract_post_data(post_data, row):
+            """POSTデータから必要な情報を抽出する"""
             try:
                 if not isinstance(post_data, str):
-                    return "不正なPOSTデータ"
+                    return {"question": "不正なPOSTデータ", "prompt_template": ""}
                     
                 data = json.loads(post_data)
-                if not isinstance(data, dict) or 'question' not in data:
-                    return "不正なPOSTデータ形式"
-                    
-                question = str(data['question'])
-                return f"{question[:50]}..." if len(question) > 50 else question
+                if not isinstance(data, dict):
+                    return {"question": "不正なPOSTデータ形式", "prompt_template": ""}
+                
+                question = str(data.get('question', ''))
+                # SQLで抽出したprompt_templateを使用
+                prompt_template = str(row['effective_prompt_template'])
+                
+                if question:
+                    question = f"{question[:50]}..." if len(question) > 50 else question
+                
+                return {"question": question, "prompt_template": prompt_template}
             except json.JSONDecodeError:
-                return "JSONの解析に失敗"
+                return {"question": "JSONの解析に失敗", "prompt_template": ""}
             except Exception as e:
-                return f"エラー: {str(e)}"
+                return {"question": f"エラー: {str(e)}", "prompt_template": ""}
 
-        df['post_data_preview'] = df['post_data'].apply(create_post_data_preview)
+        post_data_info = df.apply(lambda row: extract_post_data(row['post_data'], row), axis=1)
+        df['question'] = post_data_info.apply(lambda x: x['question'])
+        df['prompt_template'] = post_data_info.apply(lambda x: x['prompt_template'])
 
     return df
 
