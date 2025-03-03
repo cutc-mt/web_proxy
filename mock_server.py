@@ -1,12 +1,43 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 import uvicorn
 from typing import Optional, List, Dict, Any, Union
+import json
 import uuid
 from datetime import datetime
 import json
 
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # リクエストの基本情報を出力
+        print("\n=== Incoming Request ===")
+        print(f"Method: {request.method}")
+        print(f"URL: {request.url}")
+        
+        # ヘッダーを出力
+        print("\nHeaders:")
+        for name, value in request.headers.items():
+            print(f"{name}: {value}")
+        
+        # ボディを出力（JSONの場合）
+        if request.headers.get("content-type") == "application/json":
+            body = await request.body()
+            if body:
+                try:
+                    body_json = json.loads(body)
+                    print("\nRequest Body:")
+                    print(json.dumps(body_json, ensure_ascii=False, indent=2))
+                except:
+                    print("\nRequest Body: (Invalid JSON)")
+                    print(body.decode())
+        
+        # 元のレスポンスを返す
+        response = await call_next(request)
+        return response
+
 app = FastAPI(title="Mock API Server")
+app.add_middleware(RequestLoggingMiddleware)
 
 # メモリ内データストア
 threads: Dict[str, Dict] = {}  # スレッド情報
@@ -106,11 +137,10 @@ async def get_thread_messages(thread_id: str):
 @app.post("/chat")
 async def chat(request: ChatRequest):
     try:
-        # リクエストの内容をデバッグ出力
-        print("\n=== Chat Request ===")
-        print("Messages:", [{"role": m.role, "content": m.content} for m in request.messages])
-        print("Context:", request.context)
-        print("Session State:", request.session_state)
+        # 生のリクエストボディを出力
+        body = await request.body()
+        print("\n=== Raw Request Body ===")
+        print(body.decode('utf-8'))
         
         # 送信されたメッセージからユーザーの入力を取得
         last_user_message = request.messages[-1].content if request.messages else None
@@ -224,4 +254,8 @@ async def ask(request: AskRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    uvicorn.run("mock_server:app", host="0.0.0.0", port=8000, reload=True)
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+    logger = logging.getLogger("uvicorn")
+    logger.setLevel(logging.DEBUG)
+    uvicorn.run("mock_server:app", host="0.0.0.0", port=8000, reload=True, log_level="debug")

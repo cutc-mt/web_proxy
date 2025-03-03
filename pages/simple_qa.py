@@ -102,11 +102,13 @@ def show():
     # 質問入力フォーム
     with st.form("qa_form"):
         # 質問入力
+        st.markdown("### ❓ 質問を入力してください")
         st.text_area(
-            "❓ 質問を入力してください",
+            label="",
             key=question_key,
             height=100,
-            help="AIに質問したい内容を入力してください"
+            help="AIに質問したい内容を入力してください",
+            label_visibility="collapsed"
         )
 
         # Submit button
@@ -117,8 +119,20 @@ def show():
     if detail_settings_key not in st.session_state:
         st.session_state[detail_settings_key] = False
 
+    # 質問入力時のエンターキー対応
+    st.markdown("""
+        <script>
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey && document.activeElement.tagName === 'TEXTAREA') {
+                e.preventDefault();
+                document.querySelector('button[kind="primary"]').click();
+            }
+        });
+        </script>
+    """, unsafe_allow_html=True)
+
     detail_expander = st.expander(
-        "🛠️ 詳細設定",
+        "🛠️ リクエスト詳細設定",
         expanded=st.session_state[detail_settings_key]
     )
 
@@ -408,26 +422,27 @@ def show():
                     request_name=f"Simple Q&A_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 )
 
-                # 結果の表示
-                st.header("回答")
-                
                 if "error" in response and response["error"]:
                     st.error(f"エラーが発生しました: {response['error']}")
                     return
 
-                if "answer" in response:
-                    st.write(response["answer"])
+                # 回答セクション
+                st.markdown("### 💡 回答")
+                with st.container():
+                    if "answer" in response:
+                        with st.expander("回答内容", expanded=True):
+                            st.write(response["answer"])
 
-                if "data_points" in response:
-                    with st.expander("🔍 参照情報", expanded=False):
-                        for i, point in enumerate(response["data_points"], 1):
-                            st.markdown(f"**{i}.** {point}")
-                            if i < len(response["data_points"]):
-                                st.divider()
+                    if "data_points" in response:
+                        with st.expander("🔍 参照情報", expanded=False):
+                            for i, point in enumerate(response["data_points"], 1):
+                                st.markdown(f"**{i}.** {point}")
+                                if i < len(response["data_points"]):
+                                    st.divider()
 
-                if "thoughts" in response:
-                    with st.expander("💭 思考プロセス", expanded=False):
-                        st.write(response["thoughts"])
+                    if "thoughts" in response:
+                        with st.expander("💭 思考プロセス", expanded=False):
+                            st.write(response["thoughts"])
 
             except Exception as e:
                 st.error(f"エラーが発生しました: {str(e)}")
@@ -436,10 +451,12 @@ def show():
     if history_key not in st.session_state:
         st.session_state[history_key] = False
 
-    history_expander = st.expander(
-        "📜 履歴",
-        expanded=st.session_state[history_key]
-    )
+    st.markdown("### 📜 履歴")
+    with st.container():
+        history_expander = st.expander(
+            "履歴一覧",
+            expanded=st.session_state[history_key]
+        )
     
     with history_expander:
         # フィルター
