@@ -183,5 +183,45 @@ async def chat(request: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/ask")
+async def ask(request: AskRequest):
+    """Simple Q&A用のエンドポイント"""
+    try:
+        # リクエストの内容をデバッグ出力
+        print("\n=== Ask Request ===")
+        print("Question:", request.question)
+        print("Approach:", request.approach)
+        print("Overrides:", request.overrides)
+        
+        # レスポンスを作成
+        response = {
+            "answer": (
+                f"これは「{request.question}」に対するモック応答です。\n\n"
+                f"検索設定：\n"
+                f"- アプローチ: {request.approach}\n"
+                f"- 検索モード: {request.overrides.get('retrieval_mode', 'hybrid')}\n"
+                f"- 上位件数: {request.overrides.get('top', 3)}\n\n"
+                "以下のドキュメントを参照しました。"
+            ),
+            "data_points": [
+                "Azure OpenAI Service: 大規模言語モデルを活用した自然言語処理",
+                "Azure Cognitive Search: 高度な検索機能とAIによる文書理解",
+                "ハイブリッド検索: ベクトル検索とキーワード検索の組み合わせ"
+            ],
+            "thoughts": (
+                "1. 質問を分析して検索クエリを生成\n"
+                "2. 関連ドキュメントを検索して情報を抽出\n"
+                "3. 抽出した情報を基に回答を生成"
+            )
+        }
+        
+        # デバッグ出力
+        print("\n=== Ask Response ===")
+        print(json.dumps(response, ensure_ascii=False, indent=2))
+        
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     uvicorn.run("mock_server:app", host="0.0.0.0", port=8000, reload=True)

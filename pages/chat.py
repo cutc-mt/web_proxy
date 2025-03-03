@@ -2,6 +2,16 @@ import streamlit as st
 import json
 import uuid
 from utils.api_utils import make_request
+from utils.db_utils import (
+    save_chat_settings,
+    load_chat_settings,
+    get_chat_settings_list,
+    save_chat_thread,
+    save_chat_message,
+    load_chat_threads,
+    load_chat_messages,
+    delete_chat_thread
+)
 from datetime import datetime
 
 def initialize_chat_state():
@@ -28,73 +38,45 @@ def initialize_chat_state():
             "language": "ja"
         }
     
-    # スレッド管理の初期化
+    # 現在のスレッドIDの初期化
     if "current_thread_id" not in st.session_state:
         st.session_state.current_thread_id = None
-    
-    # メッセージキャッシュの初期化
-    if "message_cache" not in st.session_state:
-        st.session_state.message_cache = {}
-    
-    # スレッド一覧の初期化
-    if "chat_threads" not in st.session_state:
-        st.session_state.chat_threads = []
 
 def update_thread_order(thread_id: str):
-    """スレッドを最新の状態に更新し、リストの先頭に移動"""
-    current_thread = next(
-        (thread for thread in st.session_state.chat_threads if thread["id"] == thread_id),
-        None
-    )
-    if current_thread:
-        current_thread["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        st.session_state.chat_threads = (
-            [current_thread] +
-            [t for t in st.session_state.chat_threads if t["id"] != thread_id]
-        )
-        st.rerun()
+    """スレッドの最終更新時刻を更新"""
+    save_chat_thread(thread_id, get_thread_name(thread_id))
+    st.rerun()
+
+def get_thread_name(thread_id: str) -> str:
+    """スレッド名を取得"""
+    threads = load_chat_threads()
+    thread = next((t for t in threads if t["id"] == thread_id), None)
+    return thread["name"] if thread else ""
 
 def create_new_thread():
-    """新しいスレッドを作成（ローカル実装）"""
+    """新しいスレッドを作成（データベース実装）"""
     try:
         thread_id = str(uuid.uuid4())
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        new_thread = {
-            "id": thread_id,
-            "name": f"新しい会話 ({timestamp})",
-            "created_at": timestamp,
-            "updated_at": timestamp
-        }
-        
-        if "chat_threads" not in st.session_state:
-            st.session_state.chat_threads = []
-            
-        st.session_state.chat_threads = [new_thread] + st.session_state.chat_threads
+        name = f"新しい会話 ({timestamp})"
+        save_chat_thread(thread_id, name)
         st.session_state.current_thread_id = thread_id
-        st.session_state.message_cache[thread_id] = []
         st.rerun()
     except Exception as e:
         st.error(f"スレッドの作成に失敗しました: {str(e)}")
 
 def delete_thread(thread_id: str):
-    """スレッドを削除（ローカル実装）"""
+    """スレッドを削除（データベース実装）"""
     try:
-        st.session_state.chat_threads = [
-            thread for thread in st.session_state.chat_threads
-            if thread["id"] != thread_id
-        ]
-        if thread_id in st.session_state.message_cache:
-            del st.session_state.message_cache[thread_id]
+        delete_chat_thread(thread_id)
         st.session_state.current_thread_id = None
         st.rerun()
     except Exception as e:
         st.error(f"スレッドの削除に失敗しました: {str(e)}")
 
-def get_thread_messages(thread_id: str, force_refresh=False):
-    """スレッドのメッセージ履歴を取得（ローカル実装）"""
-    if thread_id not in st.session_state.message_cache:
-        st.session_state.message_cache[thread_id] = []
-    return st.session_state.message_cache[thread_id]
+def get_thread_messages(thread_id: str):
+    """スレッドのメッセージ履歴を取得（データベース実装）"""
+    return load_chat_messages(thread_id)
 
 def handle_chat_interaction(prompt):
     """チャットのやり取りを処理"""
@@ -110,9 +92,12 @@ def handle_chat_interaction(prompt):
         "content": prompt
     }
     
-    # 全メッセージ履歴を含めて送信
+    # バックエンドに送信する全メッセージ履歴を取得
+    messages = get_thread_messages(thread_id)
+    
+    # リクエストペイロードの作成
     payload = {
-        "messages": st.session_state.message_cache.get(thread_id, []) + [user_message],
+        "messages": messages + [user_message],
         "context": {
             "overrides": st.session_state.chat_settings
         },
@@ -140,11 +125,9 @@ def handle_chat_interaction(prompt):
                     
                     if "message" in response and "context" in response:
                         # ユーザーメッセージとアシスタントメッセージを保存
-                        st.session_state.message_cache[thread_id].append(user_message)
+                        save_chat_message(thread_id, "user", prompt)
                         assistant_message = response["message"]
-                        # コンテキスト情報をメッセージに含めて保存
-                        assistant_message["context"] = response["context"]
-                        st.session_state.message_cache[thread_id].append(assistant_message)
+                        save_chat_message(thread_id, "assistant", assistant_message["content"], response["context"])
                         update_thread_order(thread_id)
                         
                         context = response["context"]
@@ -163,20 +146,15 @@ def handle_chat_interaction(prompt):
                             
                             # 最新のメッセージの場合のみフォローアップ質問を表示
                             if "followup_questions" in context and context["followup_questions"]:
-                                if assistant_message == st.session_state.message_cache[thread_id][-1]:
-                                    st.markdown("**💭 関連する質問:**")
-                                    for question in context["followup_questions"]:
-                                        timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
-                                        if st.button(
-                                            question,
-                                            key=f"followup_{thread_id}_{hash(question)}_{timestamp}",
-                                            use_container_width=True
-                                        ):
-                                            handle_chat_interaction(question)
-                        
-                        # セッションステートの更新
-                        if "session_state" in response:
-                            st.session_state.current_session_state = response["session_state"]
+                                st.markdown("**💭 関連する質問:**")
+                                for question in context["followup_questions"]:
+                                    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+                                    if st.button(
+                                        question,
+                                        key=f"followup_{thread_id}_{hash(question)}_{timestamp}",
+                                        use_container_width=True
+                                    ):
+                                        handle_chat_interaction(question)
             else:
                 st.error("応答の取得に失敗しました")
     except Exception as e:
@@ -203,8 +181,9 @@ def render_thread_sidebar():
     
     # スレッド一覧
     st.sidebar.markdown("### 会話一覧")
+    threads = load_chat_threads()
     with st.container():
-        for thread in st.session_state.chat_threads:
+        for thread in threads:
             col1, col2 = st.sidebar.columns([4, 1])
             with col1:
                 if st.button(
@@ -214,8 +193,6 @@ def render_thread_sidebar():
                     type="primary" if thread["id"] == st.session_state.current_thread_id else "secondary"
                 ):
                     st.session_state.current_thread_id = thread["id"]
-                    # スレッド切り替え時にメッセージを更新
-                    get_thread_messages(thread["id"], force_refresh=True)
                     st.rerun()
             with col2:
                 if st.button("🗑️", key=f"delete_{thread['id']}", help="このスレッドを削除"):
@@ -224,6 +201,58 @@ def render_thread_sidebar():
 def render_settings_panel():
     """設定パネルの表示"""
     with st.sidebar.expander("⚙️ チャット設定", expanded=False):
+        # 設定プリセット管理
+        col1, col2 = st.columns(2)
+        with col1:
+            preset_name = st.text_input("プリセット名", key="preset_name", placeholder="新しいプリセット")
+        with col2:
+            if st.button("保存", key="save_preset", use_container_width=True):
+                if preset_name:
+                    save_chat_settings(preset_name, st.session_state.chat_settings)
+                    st.success(f"プリセット '{preset_name}' を保存しました")
+                else:
+                    st.warning("プリセット名を入力してください")
+
+        # プリセットの読み込み
+        presets = get_chat_settings_list()
+        if presets:
+            preset = st.selectbox(
+                "プリセットを読み込む",
+                options=[""] + [p["name"] for p in presets],
+                format_func=lambda x: "プリセットを選択" if x == "" else x
+            )
+            if preset and st.button("読み込む", key="load_preset", use_container_width=True):
+                settings = load_chat_settings(preset)
+                if settings:
+                    st.session_state.chat_settings.update(settings)
+                    st.success(f"プリセット '{preset}' を読み込みました")
+                    st.rerun()
+
+        # 設定のインポート/エクスポート
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("設定をエクスポート", use_container_width=True):
+                settings_json = json.dumps(st.session_state.chat_settings, ensure_ascii=False, indent=2)
+                st.download_button(
+                    "JSONとしてダウンロード",
+                    settings_json,
+                    file_name="chat_settings.json",
+                    mime="application/json",
+                    use_container_width=True
+                )
+        with col2:
+            uploaded_file = st.file_uploader("設定をインポート", type=["json"], label_visibility="collapsed")
+            if uploaded_file is not None:
+                try:
+                    imported_settings = json.load(uploaded_file)
+                    st.session_state.chat_settings.update(imported_settings)
+                    st.success("設定をインポートしました")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"設定のインポートに失敗しました: {str(e)}")
+
+        st.divider()
+        
         # 基本設定
         st.session_state.chat_settings["prompt_template"] = st.text_area(
             "プロンプトテンプレート", 
@@ -262,7 +291,6 @@ def render_settings_panel():
             )
         
         # 機能設定
-        # Temperature設定
         st.session_state.chat_settings["temperature"] = st.slider(
             "Temperature",
             min_value=0.0,
@@ -285,21 +313,6 @@ def render_settings_panel():
             st.session_state.chat_settings["suggest_followup_questions"]
         )
 
-def render_chat_history_panel():
-    """チャット履歴管理パネルの表示"""
-    with st.sidebar.expander("📁 チャット履歴", expanded=False):
-        if st.button("全スレッドをエクスポート"):
-            export_data = {
-                "threads": st.session_state.chat_threads,
-                "messages": st.session_state.message_cache
-            }
-            st.download_button(
-                label="JSONとしてダウンロード",
-                data=json.dumps(export_data, ensure_ascii=False, indent=2),
-                file_name="chat_history.json",
-                mime="application/json",
-            )
-
 def chat_page():
     """チャットページのメイン関数"""
     st.title("💬 チャット")
@@ -313,13 +326,11 @@ def chat_page():
     # サイドバーの設定パネル
     render_settings_panel()
     
-    # サイドバーのチャット履歴管理
-    render_chat_history_panel()
-    
     # メインチャットエリア
     if st.session_state.current_thread_id is not None:
+        threads = load_chat_threads()
         current_thread = next(
-            (thread for thread in st.session_state.chat_threads 
+            (thread for thread in threads 
              if thread["id"] == st.session_state.current_thread_id),
             None
         )
@@ -336,23 +347,22 @@ def chat_page():
                 )
                 if new_title != current_thread["name"]:
                     try:
-                        current_thread["name"] = new_title
-                        update_thread_order(current_thread["id"])
+                        save_chat_thread(current_thread["id"], new_title)
+                        st.rerun()
                     except Exception as e:
                         st.error(f"スレッド名の更新に失敗しました: {str(e)}")
             
-            # チャット履歴の表示（キャッシュを使用）
+            # チャット履歴の表示
             thread_id = current_thread["id"]
             messages = get_thread_messages(thread_id)
             for i, message in enumerate(messages):
-                is_latest = i == len(messages) - 1
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
                     
                     # アシスタントの応答の場合、コンテキスト情報を表示
-                    if message["role"] == "assistant" and "context" in message:
+                    if message["role"] == "assistant" and message.get("context"):
                         context = message["context"]
-                        # データポイントの表示（デフォルトで非表示）
+                        # データポイントの表示
                         if "data_points" in context and context["data_points"]:
                             with st.expander("🔍 参照情報", expanded=False):
                                 st.markdown("**参照されたドキュメント:**")
@@ -360,17 +370,15 @@ def chat_page():
                                     st.markdown(f"{idx}. {data_point}")
                         
                         # 最新のメッセージの場合のみフォローアップ質問を表示
-                        if is_latest and "followup_questions" in context and context["followup_questions"]:
+                        if i == len(messages) - 1 and "followup_questions" in context and context["followup_questions"]:
                             st.markdown("**💭 関連する質問:**")
                             for question in context["followup_questions"]:
-                                # ユニークなキーを生成（timestampを使用しない）
                                 key = f"followup_{thread_id}_{hash(question)}"
                                 if st.button(
                                     question,
                                     key=key,
                                     use_container_width=True
                                 ):
-                                    # メッセージを送信して即座に画面を更新
                                     handle_chat_interaction(question)
                                     st.rerun()
 

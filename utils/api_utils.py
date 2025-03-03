@@ -150,11 +150,23 @@ def make_request(method, endpoint, data=None):
         dict: レスポンスデータ
     """
     try:
-        # APIのベースURLを取得（設定またはデフォルト値）
-        base_url = st.session_state.get("api_base_url", "http://localhost:8000")
+        # APIのベースURLを取得
+        base_url = st.session_state.get("target_url", "http://localhost:8000")
+        if not base_url:
+            return {"error": "ベースURLが設定されていません"}
         
         # プロキシURLを取得
-        proxy_url = st.session_state.get("proxy_url")
+        proxy_url = st.session_state.get("proxy_url", "")
+
+        # エンドポイントに応じてパスを補完
+        if endpoint == "/chat" or endpoint == "/ask":
+            full_endpoint = endpoint
+        else:
+            # Simple Q&AとChatで適切なパスを選択
+            if "chat_history" in data:  # チャットの場合
+                full_endpoint = "/chat"
+            else:  # Simple Q&Aの場合
+                full_endpoint = "/ask"
         
         # プロキシ設定
         proxies = None
@@ -170,7 +182,7 @@ def make_request(method, endpoint, data=None):
         }
 
         # 完全なURLを構築
-        url = f"{base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        url = f"{base_url.rstrip('/')}/{full_endpoint.lstrip('/')}"
 
         # リクエストの実行
         response = requests.request(

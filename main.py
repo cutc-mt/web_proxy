@@ -1,13 +1,13 @@
 import streamlit as st
 from utils.db_utils import init_db, initialize_session_state
-import pages.home
-import pages.request_management
+import pages.simple_qa
 import pages.chat
+import pages.settings
 
 def main():
     st.set_page_config(
-        page_title="Proxy Web Request Manager",
-        page_icon="🌐",
+        page_title="AI Assistant",
+        page_icon="🤖",
         layout="wide",
         initial_sidebar_state="expanded",
         menu_items={
@@ -21,23 +21,23 @@ def main():
     init_db()
     initialize_session_state()
 
-    # シンプル化したサイドバーナビゲーション
+    # サイドバーナビゲーション
     with st.sidebar:
-        st.title("🌐 Web Request")
+        st.title("🤖 AI Assistant")
         page = st.radio(
             "",  # ラベルを削除
-            ["📝 Request", "📋 History", "💬 Chat"],
+            ["🤔 Simple Q&A", "💬 Chat", "⚙️ Settings"],
             key="navigation",
-            format_func=lambda x: x.split(" ")[1]  # アイコンを除いたテキストのみ表示
+            format_func=lambda x: x.split(" ", 1)[1]  # アイコンを除いたテキストのみ表示
         )
 
     # ページルーティング
-    if page == "📝 Request":
-        pages.home.show()
-    elif page == "📋 History":
-        pages.request_management.show()
-    else:
+    if page == "🤔 Simple Q&A":
+        pages.simple_qa.show()
+    elif page == "💬 Chat":
         pages.chat.chat_page()
+    else:
+        pages.settings.show()
 
 if __name__ == "__main__":
     main()
