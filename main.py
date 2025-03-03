@@ -2,6 +2,7 @@ import streamlit as st
 from utils.db_utils import init_db, initialize_session_state
 import pages.home
 import pages.request_management
+import pages.chat
 
 def main():
     st.set_page_config(
@@ -25,7 +26,7 @@ def main():
         st.title("🌐 Web Request")
         page = st.radio(
             "",  # ラベルを削除
-            ["📝 Request", "📋 History"],
+            ["📝 Request", "📋 History", "💬 Chat"],
             key="navigation",
             format_func=lambda x: x.split(" ")[1]  # アイコンを除いたテキストのみ表示
         )
@@ -33,8 +34,10 @@ def main():
     # ページルーティング
     if page == "📝 Request":
         pages.home.show()
-    else:
+    elif page == "📋 History":
         pages.request_management.show()
+    else:
+        pages.chat.chat_page()
 
 if __name__ == "__main__":
     main()

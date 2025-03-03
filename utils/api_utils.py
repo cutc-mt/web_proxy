@@ -136,3 +136,61 @@ def display_response(response):
 def escape_js_string(s):
     """Escape string for use in JavaScript"""
     return json.dumps(s)[1:-1]  # Remove the surrounding quotes
+
+def make_request(method, endpoint, data=None):
+    """
+    汎用的なAPIリクエスト関数
+
+    Args:
+        method (str): HTTPメソッド（"GET", "POST"など）
+        endpoint (str): APIエンドポイント（例: "/chat"）
+        data (str, optional): JSON形式のリクエストボディ
+
+    Returns:
+        dict: レスポンスデータ
+    """
+    try:
+        # APIのベースURLを取得（設定またはデフォルト値）
+        base_url = st.session_state.get("api_base_url", "http://localhost:8000")
+        
+        # プロキシURLを取得
+        proxy_url = st.session_state.get("proxy_url")
+        
+        # プロキシ設定
+        proxies = None
+        if proxy_url and is_valid_proxy_url(proxy_url):
+            proxies = {
+                "http": proxy_url,
+                "https": proxy_url
+            }
+
+        # リクエストヘッダー
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        # 完全なURLを構築
+        url = f"{base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+
+        # リクエストの実行
+        response = requests.request(
+            method=method.upper(),
+            url=url,
+            data=data,
+            proxies=proxies,
+            headers=headers,
+            timeout=30
+        )
+
+        # レスポンスの解析
+        try:
+            return response.json()
+        except json.JSONDecodeError:
+            return {
+                "error": f"JSONの解析に失敗しました: {response.text}"
+            }
+
+    except Exception as e:
+        return {
+            "error": f"リクエストエラー: {str(e)}"
+        }
