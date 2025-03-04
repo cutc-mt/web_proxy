@@ -42,3 +42,4 @@ Thumbs.db
 
 # Project specific
 attached_assets/
+*.xlsx

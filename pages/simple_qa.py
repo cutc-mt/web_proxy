@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import json
+from utils.enhance_prompt import refine_query
 from utils.db_utils import (
     load_requests_summary, delete_request, update_request_memo, save_request,
     save_post_data, load_post_data, get_saved_post_data_names,
@@ -8,83 +9,60 @@ from utils.db_utils import (
 )
 from utils.api_utils import make_request
 from datetime import datetime
-
 def initialize_qa_state():
     """Simple Q&Aのセッション状態を初期化"""
-    # セッション状態の初期化
     if "load_count" not in st.session_state:
         st.session_state.load_count = 0
         
-    # セッション状態の初期化
-    initial_state = {
-        "load_count": 0,
-        "temp_settings": None,
-        "temp_preset_name": None,
-        "detail_settings_expanded": False,
-        "history_expanded": False
-    }
-
-    for key, value in initial_state.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
-    
-    # デフォルト値
     current_count = st.session_state.load_count
-    defaults = {
-        f"retrieval_mode_{current_count}": "hybrid",
-        f"top_{current_count}": 3,
-        f"semantic_ranker_{current_count}": True,
-        f"semantic_captions_{current_count}": False,
-        f"temperature_{current_count}": 0.3,
-        f"exclude_category_{current_count}": "",
-        f"prompt_template_{current_count}": "",
-        f"question_{current_count}": ""
-    }
     
-    # 一時保存された設定がある場合はそれを使用
-    if st.session_state.temp_settings is not None:
+    # 保存された設定があればそれを読み込む
+    if "temp_settings" in st.session_state and st.session_state.temp_settings is not None:
         try:
-            # 設定を読み込み
             settings = st.session_state.temp_settings
-            preset_name = st.session_state.temp_preset_name
-            
-            if not isinstance(settings, dict) or "overrides" not in settings:
-                raise ValueError("無効な設定形式です")
-            
-            overrides = settings["overrides"]
-            if not isinstance(overrides, dict):
-                raise ValueError("無効なoverrides形式です")
-            
-            # 設定を更新
-            st.session_state[f"question_{current_count}"] = settings.get("question", "")
-            st.session_state[f"retrieval_mode_{current_count}"] = str(overrides.get("retrieval_mode", "hybrid"))
-            st.session_state[f"top_{current_count}"] = int(overrides.get("top", 3))
-            st.session_state[f"semantic_ranker_{current_count}"] = bool(overrides.get("semantic_ranker", True))
-            st.session_state[f"semantic_captions_{current_count}"] = bool(overrides.get("semantic_captions", False))
-            st.session_state[f"temperature_{current_count}"] = float(overrides.get("temperature", 0.3))
-            st.session_state[f"exclude_category_{current_count}"] = str(overrides.get("exclude_category", ""))
-            st.session_state[f"prompt_template_{current_count}"] = str(overrides.get("prompt_template", ""))
-            
-            st.success(f"設定 '{preset_name}' を読み込みました")
-            
-            # 一時保存データをクリア
-            st.session_state.temp_settings = None
-            st.session_state.temp_preset_name = None
-            
-            # 一時保存データをクリア
-            st.session_state.temp_settings = None
-            st.session_state.temp_preset_name = None
-            return
-            
+            if isinstance(settings, dict) and "overrides" in settings:
+                overrides = settings["overrides"]
+                # 設定を適用
+                st.session_state[f"question_{current_count}"] = settings.get("question", "")
+                st.session_state[f"retrieval_mode_{current_count}"] = str(overrides.get("retrieval_mode", "hybrid"))
+                st.session_state[f"top_{current_count}"] = int(overrides.get("top", 3))
+                st.session_state[f"semantic_ranker_{current_count}"] = bool(overrides.get("semantic_ranker", True))
+                st.session_state[f"semantic_captions_{current_count}"] = bool(overrides.get("semantic_captions", False))
+                st.session_state[f"temperature_{current_count}"] = float(overrides.get("temperature", 0.3))
+                st.session_state[f"exclude_category_{current_count}"] = str(overrides.get("exclude_category", ""))
+                st.session_state[f"prompt_template_{current_count}"] = str(overrides.get("prompt_template", ""))
+                
+                # 一時保存データをクリア
+                st.session_state.temp_settings = None
+                st.session_state.temp_preset_name = None
+                return
         except Exception as e:
             st.error(f"設定の読み込みに失敗しました: {str(e)}")
-            # エラー時はデフォルト値を使用
-            # エラー時はデフォルト値を使用
     
-    # デフォルト値でセッション状態を初期化
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
+    # 保存された設定がない場合はデフォルト値で初期化
+    if f"question_{current_count}" not in st.session_state:
+        st.session_state[f"question_{current_count}"] = ""
+    if f"retrieval_mode_{current_count}" not in st.session_state:
+        st.session_state[f"retrieval_mode_{current_count}"] = "hybrid"
+    if f"top_{current_count}" not in st.session_state:
+        st.session_state[f"top_{current_count}"] = 3
+    if f"semantic_ranker_{current_count}" not in st.session_state:
+        st.session_state[f"semantic_ranker_{current_count}"] = True
+    if f"semantic_captions_{current_count}" not in st.session_state:
+        st.session_state[f"semantic_captions_{current_count}"] = False
+    if f"temperature_{current_count}" not in st.session_state:
+        st.session_state[f"temperature_{current_count}"] = 0.3
+    if f"exclude_category_{current_count}" not in st.session_state:
+        st.session_state[f"exclude_category_{current_count}"] = ""
+    if f"prompt_template_{current_count}" not in st.session_state:
+        st.session_state[f"prompt_template_{current_count}"] = ""
+        
+    # UI状態の初期化
+    if "detail_settings_expanded" not in st.session_state:
+        st.session_state.detail_settings_expanded = False
+    if "history_expanded" not in st.session_state:
+        st.session_state.history_expanded = False
+    
 
 def show():
     st.title("🤔 Simple Q&A")
@@ -100,19 +78,44 @@ def show():
         st.session_state[question_key] = ""
 
     # 質問入力フォーム
-    with st.form("qa_form"):
-        # 質問入力
-        st.markdown("### ❓ 質問を入力してください")
-        st.text_area(
+    st.markdown("### ❓ 質問を入力してください")
+    
+    with st.form("qa_form", clear_on_submit=False):
+        current_question = st.text_area(
             label="",
             key=question_key,
             height=100,
             help="AIに質問したい内容を入力してください",
             label_visibility="collapsed"
         )
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            enhance_submitted = st.form_submit_button(
+                "質問を改善",
+                type="secondary",
+                use_container_width=True
+            )
+        with col2:
+            submitted = st.form_submit_button(
+                "質問を送信",
+                type="primary",
+                use_container_width=True
+            )
 
-        # Submit button
-        submitted = st.form_submit_button("質問を送信", type="primary", use_container_width=True)
+    # 質問改善の処理
+    if enhance_submitted and current_question.strip():
+        # 質問を改善
+        enhanced_question = refine_query(current_question)
+        # 新しい状態を作成
+        st.session_state.load_count += 1
+        new_count = st.session_state.load_count
+        # 改善された質問を新しい状態に設定
+        st.session_state[f"question_{new_count}"] = enhanced_question
+        # 画面を更新
+        st.rerun()
+    elif enhance_submitted:
+        st.warning("質問を入力してから改善ボタンを押してください。")
 
     # 詳細設定の状態を管理
     detail_settings_key = "detail_settings_expanded"
@@ -332,10 +335,22 @@ def show():
                                 history_expanded = st.session_state.get("history_expanded", False)
                                 
                                 try:
-                                    # 設定を一時保存して画面を更新
+                                    # 設定を一時保存
                                     st.session_state["temp_settings"] = settings
                                     st.session_state["temp_preset_name"] = preset
+                                    
+                                    # expanderの状態を保持
+                                    detail_expanded = st.session_state.get("detail_settings_expanded", False)
+                                    history_expanded = st.session_state.get("history_expanded", False)
+                                    
+                                    # 次の状態のために更新
                                     st.session_state.load_count += 1
+                                    
+                                    # expander状態を維持
+                                    st.session_state["detail_settings_expanded"] = detail_expanded
+                                    st.session_state["history_expanded"] = history_expanded
+                                    
+                                    st.success(f"設定 '{preset}' を読み込みました")
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"設定の一時保存でエラー: {str(e)}")
