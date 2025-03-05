@@ -21,9 +21,11 @@ def initialize_qa_state():
         try:
             settings = st.session_state.temp_settings
             if isinstance(settings, dict) and "overrides" in settings:
+                # 現在の質問を保持
+                current_question = st.session_state.get(f"question_{current_count}", "")
+
                 overrides = settings["overrides"]
-                # 設定を適用
-                st.session_state[f"question_{current_count}"] = settings.get("question", "")
+                # 設定を適用（質問は除外）
                 st.session_state[f"retrieval_mode_{current_count}"] = str(overrides.get("retrieval_mode", "hybrid"))
                 st.session_state[f"top_{current_count}"] = int(overrides.get("top", 3))
                 st.session_state[f"semantic_ranker_{current_count}"] = bool(overrides.get("semantic_ranker", True))
@@ -39,9 +41,7 @@ def initialize_qa_state():
         except Exception as e:
             st.error(f"設定の読み込みに失敗しました: {str(e)}")
     
-    # 保存された設定がない場合はデフォルト値で初期化
-    if f"question_{current_count}" not in st.session_state:
-        st.session_state[f"question_{current_count}"] = ""
+    # 保存された設定がない場合はデフォルト値で初期化（質問は除外）
     if f"retrieval_mode_{current_count}" not in st.session_state:
         st.session_state[f"retrieval_mode_{current_count}"] = "hybrid"
     if f"top_{current_count}" not in st.session_state:
@@ -258,7 +258,7 @@ def show():
                         if isinstance(data, dict):
                             if "overrides" not in data:
                                 overrides = {k: v for k, v in data.items() if k not in ["question", "approach"]}
-                                data = {"overrides": overrides, "question": "", "approach": "rtr"}
+                                data = {"overrides": overrides, "approach": "rtr"}
                             modified_settings[name] = data
                     success, errors = import_post_data(modified_settings)
                     st.success(f"設定をインポートしました（成功: {success}, エラー: {errors}）")
@@ -279,7 +279,6 @@ def show():
                 if save_submitted and preset_name:
                     try:
                         settings = {
-                            "question": "",
                             "approach": "rtr",
                             "overrides": {
                                 "retrieval_mode": str(st.session_state[f"retrieval_mode_{current_count}"]),
