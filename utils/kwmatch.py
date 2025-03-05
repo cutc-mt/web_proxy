@@ -82,10 +82,8 @@ def match_keywords(
 
     sentence_splits = tokenizer.tokenize(sentence)
     names = get_tokenizer_names(sentence_splits, tokenizer_type)
-    print(f"Tokenizer names:", names)
 
     possible_matches = find_possible_matches(sentence, keyword_list)
-    print("Possible matches:", possible_matches)
 
     positions_matches = find_positions(sentence, possible_matches)
     ranges = sorted(
@@ -96,11 +94,8 @@ def match_keywords(
         key=lambda x: x[0],
     )
     overlapping_ranges = find_overlapping_ranges(ranges)
-#    print("Overlapping ranges:", overlapping_ranges)
     remove_overlapping_positions(positions_matches, overlapping_ranges)
-#    print("Positions matches:", positions_matches)
     
     unique_candidates = get_unique_candidates(positions_matches)
-    print("Unique candidates:", unique_candidates)
 
     return filter_candidates(unique_candidates, names)
