@@ -611,12 +611,9 @@ def load_requests_summary():
                 if not isinstance(data, dict):
                     return {"question": "不正なPOSTデータ形式", "prompt_template": ""}
                 
+                # 質問とプロンプトテンプレートを取得
                 question = str(data.get('question', ''))
-                # SQLで抽出したprompt_templateを使用
                 prompt_template = str(row['effective_prompt_template'])
-                
-                if question:
-                    question = f"{question[:50]}..." if len(question) > 50 else question
                 
                 return {"question": question, "prompt_template": prompt_template}
             except json.JSONDecodeError:

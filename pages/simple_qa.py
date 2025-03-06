@@ -185,6 +185,32 @@ def show():
         # 初期状態
         st.session_state["current_question"] = ""
     
+    # 過去の質問サジェスト
+    with st.expander("💭 過去の質問から選択", expanded=False):
+        # 質問履歴を読み込み
+        requests = load_requests_summary()
+        if requests is not None and not requests.empty:
+            # 質問のみを抽出して重複を削除
+            unique_questions = requests['question'].dropna().unique()
+            
+            # 質問リストを保持
+            if 'unique_questions_list' not in st.session_state:
+                st.session_state['unique_questions_list'] = list(unique_questions)
+            
+            # 質問をボタンとして表示（表示は省略、クリック時は全文を使用）
+            for i, question in enumerate(st.session_state['unique_questions_list']):
+                display_text = (question[:100] + "...") if len(question) > 100 else question
+                tooltip = question if len(question) > 100 else None
+                
+                if st.button(
+                    display_text,
+                    key=f"q_{i}",
+                    use_container_width=True,
+                    help=tooltip  # ツールチップとして全文を表示
+                ):
+                    st.session_state["current_question"] = question
+                    st.rerun()
+
     # 質問入力フォーム
     with st.form("qa_form", clear_on_submit=False):
         # 質問入力欄
@@ -192,7 +218,7 @@ def show():
             label="",
             key="current_question",
             height=200,
-            help="AIに質問したい内容を入力してください",
+            help="AIに質問したい内容を入力してください。💭 過去の質問から選択することもできます。",
             label_visibility="collapsed"
         )
         
