@@ -191,7 +191,7 @@ def show():
         current_question = st.text_area(
             label="",
             key="current_question",
-            height=100,
+            height=200,
             help="AIに質問したい内容を入力してください",
             label_visibility="collapsed"
         )
@@ -307,16 +307,26 @@ def show():
         st.session_state["active_settings_tab"] = 0  # 0: 設定タブ, 1: 保存/読み込みタブ
 
     with st.expander("🛠️ リクエスト詳細設定", expanded=st.session_state[detail_settings_key]):
-        settings_tab, io_tab = st.tabs(["設定", "設定の保存/読み込み"])
+        # タブの表示と内容の切り替え
+        tabs = ["設定", "設定の保存/読み込み"]
         
-        # アクティブなタブを設定
-        if st.session_state["active_settings_tab"] == 0:
-            settings_tab.active = True
-        else:
-            io_tab.active = True
+        # radioボタンの選択を表示
+        current_tab = st.radio(
+            "タブ選択",
+            tabs,
+            label_visibility="collapsed",
+            index=st.session_state["active_settings_tab"]
+        )
         
-        # 設定タブ
-        with settings_tab:
+        # タブの選択状態を更新
+        new_tab_index = tabs.index(current_tab)
+        if new_tab_index != st.session_state["active_settings_tab"]:
+            st.session_state["active_settings_tab"] = new_tab_index
+            st.rerun()
+        
+        # タブの内容を表示
+        if current_tab == "設定":
+            # 設定タブの内容
             placeholder = st.empty()
             with placeholder.container():
                 # 設定ウィジェットを表示して現在の値を取得
@@ -340,8 +350,7 @@ def show():
                     st.success("設定を適用しました")
                     st.rerun()
         
-        # 保存/読み込みタブ
-        with io_tab:
+        else:
             st.subheader("プリセット設定の管理")
             preset_col1, preset_col2 = st.columns(2)
             
@@ -396,6 +405,7 @@ def show():
                                     
                                     # 設定タブに切り替え
                                     st.session_state["active_settings_tab"] = 0
+                                    st.session_state["settings_tab_radio"] = "設定"
                                     
                                     st.success(f"設定 '{preset}' を読み込みました")
                                     st.rerun()
