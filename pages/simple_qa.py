@@ -386,13 +386,35 @@ def show():
                     preset_name = st.text_input("プリセット名", key="preset_name", placeholder="新しいプリセット")
                     if st.form_submit_button("設定を保存", use_container_width=True) and preset_name:
                         try:
-                            # 現在のウィジェット値を取得
-                            current_settings = get_current_settings()
+                            # 現在の設定を取得
+                            current_settings = {
+                                "retrieval_mode": st.session_state.get("retrieval_mode", "hybrid"),
+                                "top": st.session_state.get("top", 3),
+                                "semantic_ranker": st.session_state.get("semantic_ranker", True),
+                                "semantic_captions": st.session_state.get("semantic_captions", False),
+                                "temperature": st.session_state.get("temperature", 0.3),
+                                "prompt_template": st.session_state.get("prompt_template", ""),
+                                "exclude_category": st.session_state.get("exclude_category", "")
+                            }
                             
+                            # 一時的な設定値があれば優先
+                            for key in current_settings.keys():
+                                temp_key = f"_{key}"
+                                if temp_key in st.session_state:
+                                    current_settings[key] = st.session_state[temp_key]
+
                             # 設定データを作成
                             settings = {
                                 "approach": "rtr",
-                                "overrides": current_settings
+                                "overrides": {
+                                    "retrieval_mode": str(current_settings["retrieval_mode"]),
+                                    "semantic_ranker": bool(current_settings["semantic_ranker"]),
+                                    "semantic_captions": bool(current_settings["semantic_captions"]),
+                                    "top": int(current_settings["top"]),
+                                    "temperature": float(current_settings["temperature"]),
+                                    "prompt_template": str(current_settings["prompt_template"]),
+                                    "exclude_category": str(current_settings["exclude_category"])
+                                }
                             }
                             save_post_data(preset_name, settings)
                             st.success(f"設定 '{preset_name}' を保存しました")
