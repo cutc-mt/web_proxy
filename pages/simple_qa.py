@@ -91,72 +91,79 @@ def show_detail_settings():
 
     return {key: current_settings.get(key, defaults[key]) for key in defaults.keys()}
 
-def sync_settings():
-    """現在の設定値を取得して同期"""
-    settings = {
-        "retrieval_mode": st.session_state.get("retrieval_mode", "hybrid"),
-        "top": st.session_state.get("top", 3),
-        "semantic_ranker": st.session_state.get("semantic_ranker", True),
-        "semantic_captions": st.session_state.get("semantic_captions", False),
-        "temperature": st.session_state.get("temperature", 0.3),
-        "exclude_category": st.session_state.get("exclude_category", ""),
-        "prompt_template": st.session_state.get("prompt_template", "")
-    }
-    return settings
-
-def initialize_qa_state():
-    """Simple Q&Aのセッション状態を初期化"""
-    # 一時的な質問がある場合は保持
-    next_question = st.session_state.pop("_next_question", None)
-    
-    # デフォルト値
-    defaults = {
-        "detail_settings_expanded": False,
-        "history_expanded": False,
+def get_default_settings():
+    """デフォルトの設定値を返す"""
+    return {
         "retrieval_mode": "hybrid",
         "top": 3,
         "semantic_ranker": True,
         "semantic_captions": False,
         "temperature": 0.3,
         "exclude_category": "",
-        "prompt_template": ""
+        "prompt_template": "",
+        "detail_settings_expanded": False,
+        "history_expanded": False
+    }
+
+def get_current_settings():
+    """現在の設定値を取得"""
+    settings = {}
+    keys = [
+        "retrieval_mode", "top", "semantic_ranker", "semantic_captions",
+        "temperature", "exclude_category", "prompt_template"
+    ]
+    
+    # 一時的な設定値があれば優先
+    for key in keys:
+        temp_key = f"_{key}"
+        if temp_key in st.session_state:
+            settings[key] = st.session_state[temp_key]
+        else:
+            settings[key] = st.session_state.get(key, get_default_settings()[key])
+    return settings
+
+def update_settings(settings):
+    """設定を更新（UIの状態を保持）"""
+    # UI状態を保存
+    ui_state = {
+        "detail_settings_expanded": st.session_state.get("detail_settings_expanded", False),
+        "history_expanded": st.session_state.get("history_expanded", False),
+        "active_settings_tab": st.session_state.get("active_settings_tab", 0)
     }
     
-    # 存在しないキーのみ初期化
-    for key, default_value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = default_value
+    # 設定を更新
+    for key, value in settings.items():
+        st.session_state[key] = value
     
-    # タブの状態を初期化
-    if "active_settings_tab" not in st.session_state:
-        st.session_state["active_settings_tab"] = 0
+    # UI状態を復元
+    for key, value in ui_state.items():
+        st.session_state[key] = value
+
+def initialize_qa_state():
+    """Simple Q&Aのセッション状態を初期化"""
+    # 一時的な質問を保持
+    next_question = st.session_state.pop("_next_question", None)
+    
+    # デフォルト設定で初期化
+    for key, value in get_default_settings().items():
+        if key not in st.session_state:
+            st.session_state[key] = value
     
     # 一時的な状態がある場合は反映
     if "_temp_state" in st.session_state:
         temp_state = st.session_state.pop("_temp_state")
-        
-        # 設定を復元
         if "settings" in temp_state:
-            for key, value in temp_state["settings"].items():
-                if value is not None:
-                    st.session_state[key] = value
-        
-        # 改善された質問を設定
+            update_settings(temp_state["settings"])
         if "enhanced_question" in temp_state:
             st.session_state["_enhanced_question"] = temp_state["enhanced_question"]
 
     # リクエスト名を復元
     if "_temp_request_name" in st.session_state:
         st.session_state["custom_request_name"] = st.session_state.pop("_temp_request_name")
-        
-        # 設定タブに切り替え
         st.session_state["active_settings_tab"] = 0
     
-    # 質問を設定
-    if next_question is not None:
-        st.session_state["current_question"] = next_question
-    elif "current_question" not in st.session_state:
-        st.session_state["current_question"] = ""
+    # 質問を初期化
+    st.session_state["current_question"] = next_question if next_question is not None else st.session_state.get("current_question", "")
 
 def show():
     st.title("🤔 Simple Q&A")
@@ -181,9 +188,6 @@ def show():
     # 質問入力フォーム
     with st.form("qa_form", clear_on_submit=False):
         # 質問入力欄
-        if "current_question" not in st.session_state:
-            st.session_state["current_question"] = initial_question
-
         current_question = st.text_area(
             label="",
             key="current_question",
@@ -221,53 +225,39 @@ def show():
 
     # 質問改善の処理
     if enhance_submitted:
-        if current_question and current_question.strip():
-            try:
-                # 現在の設定を保持
-                current_settings = {
-                    key: st.session_state.get(key) for key in [
-                        "retrieval_mode", "top", "semantic_ranker",
-                        "semantic_captions", "temperature",
-                        "exclude_category", "prompt_template",
-                        "custom_request_name"
-                    ]
-                }
-                
-                # 質問を改善
-                enhanced_question = refine_query(current_question)
-                
-                # 一時的な状態を保存
-                st.session_state["_temp_state"] = {
-                    "settings": current_settings,
-                    "enhanced_question": enhanced_question
-                }
-
-                # 現在のリクエスト名は保持
-                if "custom_request_name" in st.session_state:
-                    st.session_state["_temp_request_name"] = st.session_state["custom_request_name"]
-
-                st.success("質問を改善しました")
-                st.rerun()
-            except Exception as e:
-                st.error(f"質問の改善中にエラーが発生しました: {str(e)}")
-        else:
+        question_text = current_question.strip() if current_question else ""
+        if not question_text:
             st.warning("質問を入力してから改善ボタンを押してください。")
+            return
 
-    if enhance_submitted:
-        question_text = st.session_state.get("current_question", "").strip()
-        if question_text:
-            try:
-                # 質問を改善
-                enhanced_question = refine_query(question_text)
-                
-                # 改善された質問を保存して再読み込み
-                st.session_state["_enhanced_question"] = enhanced_question
-                st.success("質問を改善しました")
-                st.rerun()
-            except Exception as e:
-                st.error(f"質問の改善中にエラーが発生しました: {str(e)}")
-        else:
-            st.warning("質問を入力してから改善ボタンを押してください。")
+        try:
+            # 現在の設定を保持
+            current_settings = {
+                key: st.session_state.get(key) for key in [
+                    "retrieval_mode", "top", "semantic_ranker",
+                    "semantic_captions", "temperature",
+                    "exclude_category", "prompt_template",
+                    "custom_request_name"
+                ]
+            }
+            
+            # 質問を改善
+            enhanced_question = refine_query(question_text)
+            
+            # 一時的な状態を保存
+            st.session_state["_temp_state"] = {
+                "settings": current_settings,
+                "enhanced_question": enhanced_question
+            }
+
+            # 現在のリクエスト名は保持
+            if "custom_request_name" in st.session_state:
+                st.session_state["_temp_request_name"] = st.session_state["custom_request_name"]
+
+            st.success("質問を改善しました")
+            st.rerun()
+        except Exception as e:
+            st.error(f"質問の改善中にエラーが発生しました: {str(e)}")
 
     # 詳細設定の状態を管理
     detail_settings_key = "detail_settings_expanded"
@@ -334,8 +324,19 @@ def show():
                 
                 # 設定を同期するボタン
                 if st.button("設定を適用", use_container_width=True):
-                    settings = get_current_settings()
-                    update_settings_and_state(settings)
+                    current_settings = {
+                        "retrieval_mode": st.session_state.get("_retrieval_mode"),
+                        "top": st.session_state.get("_top"),
+                        "semantic_ranker": st.session_state.get("_semantic_ranker"),
+                        "semantic_captions": st.session_state.get("_semantic_captions"),
+                        "temperature": st.session_state.get("_temperature"),
+                        "exclude_category": st.session_state.get("_exclude_category"),
+                        "prompt_template": st.session_state.get("_prompt_template")
+                    }
+                    # 設定を更新
+                    for key, value in current_settings.items():
+                        if value is not None:
+                            st.session_state[key] = value
                     st.success("設定を適用しました")
                     st.rerun()
         
@@ -464,18 +465,25 @@ def show():
     if submitted:
         with st.spinner("AIが回答を生成中..."):
             try:
-                # 質問を取得
-                current_question = st.session_state.get("current_question", "")
+                # 現在の質問と設定を取得
+                question_text = st.session_state.get("current_question", "").strip()
+                if not question_text:
+                    st.warning("質問を入力してください。")
+                    return
 
-                # 現在の設定値を取得
-                current_settings = {}
-                for key in ["retrieval_mode", "top", "semantic_ranker", "semantic_captions",
-                           "temperature", "exclude_category", "prompt_template"]:
-                    current_settings[key] = st.session_state.get(key)
+                current_settings = {
+                    "retrieval_mode": st.session_state.get("retrieval_mode", "hybrid"),
+                    "top": st.session_state.get("top", 3),
+                    "semantic_ranker": st.session_state.get("semantic_ranker", True),
+                    "semantic_captions": st.session_state.get("semantic_captions", False),
+                    "temperature": st.session_state.get("temperature", 0.3),
+                    "prompt_template": st.session_state.get("prompt_template", ""),
+                    "exclude_category": st.session_state.get("exclude_category", "")
+                }
 
-                # JSONデータを作成（現在の設定値を使用）
+                # JSONデータを作成
                 data = {
-                    "question": current_question,
+                    "question": question_text,
                     "approach": "rtr",
                     "overrides": {
                         "retrieval_mode": str(current_settings["retrieval_mode"]),
