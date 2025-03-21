@@ -150,13 +150,19 @@ def make_request(method, endpoint, data=None):
         dict: レスポンスデータ
     """
     try:
-        # APIのベースURLを取得
-        base_url = st.session_state.get("target_url", "http://localhost:8000")
-        if not base_url:
-            return {"error": "ベースURLが設定されていません"}
+        # バックエンド固有のURL設定を取得
+        backend_id = st.session_state.get("qa_backend_id", "azure_openai_legacy")
+        if "backend_urls" in st.session_state and backend_id in st.session_state.backend_urls:
+            urls = st.session_state.backend_urls[backend_id]
+            base_url = urls.get("target_url", "")
+            proxy_url = urls.get("proxy_url", "")
+        else:
+            # 後方互換性のために残す（古い設定がある場合）
+            base_url = st.session_state.get("target_url", "")
+            proxy_url = st.session_state.get("proxy_url", "")
         
-        # プロキシURLを取得
-        proxy_url = st.session_state.get("proxy_url", "")
+        if not base_url:
+            return {"error": "選択されたバックエンドのベースURLが設定されていません"}
 
         # エンドポイントに応じてパスを補完
         if endpoint == "/chat" or endpoint == "/ask":

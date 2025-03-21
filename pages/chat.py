@@ -26,6 +26,18 @@ def initialize_chat_state():
     
     if "current_backend_id" not in st.session_state:
         st.session_state.current_backend_id = "azure_openai_legacy"
+    
+    # バックエンドのURL設定を読み込む
+    try:
+        from utils.db_utils import load_urls
+        backend_id = st.session_state.current_backend_id
+        urls = load_urls(backend_id)
+        if urls:
+            if "backend_urls" not in st.session_state:
+                st.session_state.backend_urls = {}
+            st.session_state.backend_urls[backend_id] = urls
+    except Exception as e:
+        st.error(f"バックエンドのURL設定の読み込みに失敗しました: {str(e)}")
 
 def update_thread_order(thread_id: str):
     """Update thread's last modified time"""
@@ -198,6 +210,18 @@ def render_settings_panel():
             st.session_state.current_backend_id = selected_backend
             backend_manager.set_current_backend(selected_backend)
             st.session_state.chat_settings = backend_manager.get_current_backend().get_settings_schema()
+            
+            # 新しいバックエンドのURL設定を読み込む
+            try:
+                from utils.db_utils import load_urls
+                urls = load_urls(selected_backend)
+                if urls:
+                    if "backend_urls" not in st.session_state:
+                        st.session_state.backend_urls = {}
+                    st.session_state.backend_urls[selected_backend] = urls
+            except Exception as e:
+                st.error(f"バックエンドのURL設定の読み込みに失敗しました: {str(e)}")
+            
             st.rerun()
         
         # Settings presets

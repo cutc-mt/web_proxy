@@ -23,6 +23,16 @@ class SimpleQASettings:
         """バックエンドの初期化"""
         backend_id = st.session_state.get("qa_backend_id", "azure_openai_legacy")
         self.current_backend = self.backend_manager.create_backend(backend_id)
+        # バックエンド固有のURL設定を読み込む
+        try:
+            from utils.db_utils import load_urls
+            urls = load_urls(backend_id)
+            if urls:
+                if "backend_urls" not in st.session_state:
+                    st.session_state.backend_urls = {}
+                st.session_state.backend_urls[backend_id] = urls
+        except Exception as e:
+            st.error(f"バックエンドのURL設定の読み込みに失敗しました: {str(e)}")
     
     def show_backend_selector(self):
         """バックエンド選択セレクトボックスを表示"""
