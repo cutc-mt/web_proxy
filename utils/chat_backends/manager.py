@@ -2,7 +2,6 @@ from typing import Dict, Type, Optional
 from . import ChatBackend
 from .azure_openai import AzureOpenAIBackend
 from .azure_openai_legacy import AzureOpenAILegacyBackend
-from .openai import OpenAIBackend
 
 class ChatBackendManager:
     """Manages available chat backends and their instances"""
@@ -23,7 +22,6 @@ class ChatBackendManager:
         # Register default backends
         self.register_backend("azure_openai_legacy", AzureOpenAILegacyBackend)
         self.register_backend("azure_openai", AzureOpenAIBackend)
-        self.register_backend("openai", OpenAIBackend)
         
         # Set default backend
         self.set_current_backend("azure_openai_legacy")
