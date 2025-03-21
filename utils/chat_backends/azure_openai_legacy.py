@@ -7,6 +7,120 @@ import json
 class AzureOpenAILegacyBackend(ChatBackend):
     """Azure OpenAI Legacy backend implementation"""
     
+    def get_default_qa_settings(self) -> Dict[str, Any]:
+        """デフォルトのQ&A設定を取得"""
+        return {
+            "retrieval_mode": "hybrid",
+            "top": 3,
+            "semantic_ranker": True,
+            "semantic_captions": False,
+            "temperature": 0.3,
+            "exclude_category": "",
+            "prompt_template": ""
+        }
+    
+    def get_qa_settings(self) -> Dict[str, Any]:
+        """現在のQ&A設定を取得"""
+        defaults = self.get_default_qa_settings()
+        settings = {}
+        for key in defaults.keys():
+            temp_key = f"_{key}"
+            settings[key] = st.session_state.get(temp_key, st.session_state.get(key, defaults[key]))
+        return settings
+    
+    def render_qa_settings(self) -> None:
+        """Q&A設定のUIを表示"""
+        # 検索設定
+        modes = ["hybrid", "vectors", "text"]
+        st.selectbox(
+            "検索モード",
+            modes,
+            key="_retrieval_mode",
+            index=modes.index(st.session_state.get("retrieval_mode", "hybrid"))
+        )
+        
+        st.number_input(
+            "参照件数",
+            min_value=1,
+            max_value=50,
+            key="_top",
+            value=st.session_state.get("top", 3)
+        )
+        
+        # 機能設定
+        st.checkbox(
+            "セマンティック検索",
+            key="_semantic_ranker",
+            value=st.session_state.get("semantic_ranker", True)
+        )
+        
+        st.checkbox(
+            "セマンティックキャプション",
+            key="_semantic_captions",
+            value=st.session_state.get("semantic_captions", False)
+        )
+        
+        st.slider(
+            "Temperature",
+            min_value=0.0,
+            max_value=1.0,
+            step=0.1,
+            key="_temperature",
+            value=st.session_state.get("temperature", 0.3)
+        )
+        
+        st.text_area(
+            "除外カテゴリ（カンマ区切り）",
+            key="_exclude_category",
+            value=st.session_state.get("exclude_category", "")
+        )
+        
+        st.text_area(
+            "プロンプトテンプレート",
+            key="_prompt_template",
+            value=st.session_state.get("prompt_template", "")
+        )
+    
+    def serialize_qa_settings(self, settings: Dict[str, Any]) -> Dict[str, Any]:
+        """Q&A設定をシリアライズ"""
+        return {
+            "approach": "rtr",
+            "overrides": {
+                "retrieval_mode": str(settings["retrieval_mode"]),
+                "semantic_ranker": bool(settings["semantic_ranker"]),
+                "semantic_captions": bool(settings["semantic_captions"]),
+                "top": int(settings["top"]),
+                "temperature": float(settings["temperature"]),
+                "prompt_template": str(settings["prompt_template"]),
+                "exclude_category": str(settings["exclude_category"])
+            }
+        }
+    
+    def deserialize_qa_settings(self, data: Dict[str, Any]) -> None:
+        """Q&A設定をデシリアライズして適用"""
+        if isinstance(data, dict):
+            if "overrides" in data:
+                data = data["overrides"]
+            for key, value in data.items():
+                st.session_state[key] = value
+                st.session_state[f"_{key}"] = value
+    
+    def create_qa_request(self, question: str, settings: Dict[str, Any]) -> Dict[str, Any]:
+        """Q&Aリクエストペイロードを作成"""
+        return {
+            "question": question,
+            "approach": "rtr",
+            "overrides": {
+                "retrieval_mode": str(settings["retrieval_mode"]),
+                "semantic_ranker": bool(settings["semantic_ranker"]),
+                "semantic_captions": bool(settings["semantic_captions"]),
+                "top": int(settings["top"]),
+                "temperature": float(settings["temperature"]),
+                "prompt_template": str(settings.get("prompt_template", "")),
+                "exclude_category": str(settings.get("exclude_category", ""))
+            }
+        }
+    
     def get_name(self) -> str:
         return "Azure OpenAI (Legacy)"
     

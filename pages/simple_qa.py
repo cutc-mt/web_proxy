@@ -10,56 +10,46 @@ from utils.db_utils import (
 from utils.api_utils import make_request
 from datetime import datetime
 
+from utils.chat_backends.manager import ChatBackendManager
+
+class SimpleQASettings:
+    """SimpleQ&Aの設定を管理するクラス"""
+    def __init__(self):
+        self.backend_manager = ChatBackendManager()
+        self.current_backend = None
+        self._initialize_backend()
+    
+    def _initialize_backend(self):
+        """バックエンドの初期化"""
+        backend_id = st.session_state.get("qa_backend_id", "azure_openai_legacy")
+        self.current_backend = self.backend_manager.create_backend(backend_id)
+    
+    def show_backend_selector(self):
+        """バックエンド選択セレクトボックスを表示"""
+        backends = self.backend_manager.get_available_backends()
+        backend_names = list(backends.keys())
+        current_backend = st.session_state.get("qa_backend_id", "azure_openai_legacy")
+        
+        selected_backend = st.selectbox(
+            "バックエンド",
+            backend_names,
+            index=backend_names.index(current_backend),
+            key="_qa_backend_id"
+        )
+        
+        if selected_backend != current_backend:
+            st.session_state["qa_backend_id"] = selected_backend
+            self._initialize_backend()
+            st.rerun()
+
 def show_detail_settings():
     """詳細設定のウィジェットを表示"""
-    modes = ["hybrid", "vectors", "text"]
-    st.selectbox(
-        "検索モード",
-        modes,
-        key="_retrieval_mode",
-        index=modes.index(st.session_state.get("retrieval_mode", "hybrid"))
-    )
+    settings = SimpleQASettings()
+    settings.show_backend_selector()
     
-    st.number_input(
-        "参照件数",
-        min_value=1,
-        max_value=50,
-        key="_top",
-        value=st.session_state.get("top", 3)
-    )
-
-    st.checkbox(
-        "セマンティック検索",
-        key="_semantic_ranker",
-        value=st.session_state.get("semantic_ranker", True)
-    )
-    
-    st.checkbox(
-        "セマンティックキャプション",
-        key="_semantic_captions",
-        value=st.session_state.get("semantic_captions", False)
-    )
-
-    st.slider(
-        "Temperature",
-        min_value=0.0,
-        max_value=1.0,
-        step=0.1,
-        key="_temperature",
-        value=st.session_state.get("temperature", 0.3)
-    )
-
-    st.text_area(
-        "除外カテゴリ（カンマ区切り）",
-        key="_exclude_category",
-        value=st.session_state.get("exclude_category", "")
-    )
-
-    st.text_area(
-        "プロンプトテンプレート",
-        key="_prompt_template",
-        value=st.session_state.get("prompt_template", "")
-    )
+    if settings.current_backend:
+        # バックエンド固有の詳細設定を表示
+        settings.current_backend.render_qa_settings()
 
     current_settings = {
         "retrieval_mode": st.session_state.get("_retrieval_mode"),
@@ -85,33 +75,25 @@ def show_detail_settings():
 
 def get_default_settings():
     """デフォルトの設定値を返す"""
+    settings = SimpleQASettings()
+    backend_settings = settings.current_backend.get_default_qa_settings() if settings.current_backend else {}
     return {
-        "retrieval_mode": "hybrid",
-        "top": 3,
-        "semantic_ranker": True,
-        "semantic_captions": False,
-        "temperature": 0.3,
-        "exclude_category": "",
-        "prompt_template": "",
+        **backend_settings,
+        "qa_backend_id": "azure_openai_legacy",
         "detail_settings_expanded": False,
         "history_expanded": False
     }
 
 def get_current_settings():
     """現在の設定値を取得"""
-    settings = {}
-    keys = [
-        "retrieval_mode", "top", "semantic_ranker", "semantic_captions",
-        "temperature", "exclude_category", "prompt_template"
-    ]
-    
-    for key in keys:
-        temp_key = f"_{key}"
-        if temp_key in st.session_state:
-            settings[key] = st.session_state[temp_key]
-        else:
-            settings[key] = st.session_state.get(key, get_default_settings()[key])
-    return settings
+    settings = SimpleQASettings()
+    if settings.current_backend:
+        backend_settings = settings.current_backend.get_qa_settings()
+        return {
+            **backend_settings,
+            "qa_backend_id": st.session_state.get("qa_backend_id", "azure_openai_legacy")
+        }
+    return get_default_settings()
 
 def update_settings(settings):
     """設定を更新"""
@@ -169,15 +151,12 @@ def render_settings_panel():
         if current_tab == "設定":
             show_detail_settings()
             if st.button("設定を適用", use_container_width=True):
-                current_settings = {
-                    "retrieval_mode": st.session_state.get("_retrieval_mode"),
-                    "top": st.session_state.get("_top"),
-                    "semantic_ranker": st.session_state.get("_semantic_ranker"),
-                    "semantic_captions": st.session_state.get("_semantic_captions"),
-                    "temperature": st.session_state.get("_temperature"),
-                    "exclude_category": st.session_state.get("_exclude_category"),
-                    "prompt_template": st.session_state.get("_prompt_template")
-                }
+                settings = SimpleQASettings()
+                if not settings.current_backend:
+                    st.error("バックエンドが設定されていません")
+                    return
+
+                current_settings = settings.current_backend.get_qa_settings()
                 for key, value in current_settings.items():
                     if value is not None:
                         st.session_state[key] = value
@@ -191,18 +170,15 @@ def render_settings_panel():
             preset_name = st.text_input("プリセット名", key="preset_name", placeholder="新しいプリセット")
             if st.button("設定を保存", use_container_width=True) and preset_name:
                 try:
+                    settings_obj = SimpleQASettings()
+                    if not settings_obj.current_backend:
+                        st.error("バックエンドが設定されていません")
+                        return
+                    
                     current_settings = get_current_settings()
                     settings = {
-                        "approach": "rtr",
-                        "overrides": {
-                            "retrieval_mode": str(current_settings["retrieval_mode"]),
-                            "semantic_ranker": bool(current_settings["semantic_ranker"]),
-                            "semantic_captions": bool(current_settings["semantic_captions"]),
-                            "top": int(current_settings["top"]),
-                            "temperature": float(current_settings["temperature"]),
-                            "prompt_template": str(current_settings["prompt_template"]),
-                            "exclude_category": str(current_settings["exclude_category"])
-                        }
+                        "qa_backend_id": current_settings["qa_backend_id"],
+                        "settings": settings_obj.current_backend.serialize_qa_settings(current_settings)
                     }
                     save_post_data(preset_name, settings)
                     st.success(f"設定 '{preset_name}' を保存しました")
@@ -269,10 +245,23 @@ def render_settings_panel():
                     modified_settings = {}
                     for name, data in imported_settings.items():
                         if isinstance(data, dict):
-                            if "overrides" not in data:
+                            settings_obj = SimpleQASettings()
+                            if "qa_backend_id" in data:
+                                # 新形式の設定
+                                modified_settings[name] = data
+                            elif "overrides" in data:
+                                # 旧形式の設定
+                                modified_settings[name] = {
+                                    "qa_backend_id": "azure_openai_legacy",
+                                    "settings": data["overrides"]
+                                }
+                            else:
+                                # その他の形式
                                 overrides = {k: v for k, v in data.items() if k not in ["question", "approach"]}
-                                data = {"overrides": overrides, "approach": "rtr"}
-                            modified_settings[name] = data
+                                modified_settings[name] = {
+                                    "qa_backend_id": "azure_openai_legacy",
+                                    "settings": overrides
+                                }
                     success, errors = import_post_data(modified_settings)
                     if success > 0:
                         st.success(f"設定をインポートしました（成功: {success}, エラー: {errors}）")
@@ -389,20 +378,15 @@ def show():
                     st.warning("質問を入力してください。")
                     return
 
-                current_settings = get_current_settings()
-                data = {
-                    "question": question_text,
-                    "approach": "rtr",
-                    "overrides": {
-                        "retrieval_mode": str(current_settings["retrieval_mode"]),
-                        "semantic_ranker": bool(current_settings["semantic_ranker"]),
-                        "semantic_captions": bool(current_settings["semantic_captions"]),
-                        "top": int(current_settings["top"]),
-                        "temperature": float(current_settings["temperature"]),
-                        "prompt_template": str(current_settings["prompt_template"]),
-                        "exclude_category": str(current_settings["exclude_category"])
-                    }
-                }
+                settings = SimpleQASettings()
+                if not settings.current_backend:
+                    st.error("バックエンドが設定されていません")
+                    return
+
+                data = settings.current_backend.create_qa_request(
+                    question_text,
+                    get_current_settings()
+                )
 
                 st.session_state["_next_question"] = current_question
                 
